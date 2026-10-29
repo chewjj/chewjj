@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Equilibria · People-Centred Low-Carbon Portfolios</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    (() => {
+      let theme;
+      try { theme = localStorage.getItem('eq-theme'); } catch (e) { /* storage unavailable */ }
+      if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">◐</div>
+      <div><h1>Equilibria</h1><p>Portfolio decarbonisation · v0.1</p></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="top-actions">
+      <div class="theme-toggle" role="group" aria-label="Colour theme">
+        <button data-theme-set="dark" title="Dark theme">☾ Dark</button>
+        <button data-theme-set="light" title="Light theme">☀ Light</button>
+      </div>
+      <button class="btn ghost sm" id="btnReset">Reset</button>
+      <button class="btn sm" id="btnReport">ESG report</button>
+    </div>
+  </header>
+
+  <nav class="xp-bar" aria-label="Experiences">
+    <span class="xp-label">00 / Experiences</span>
+    <button data-xp="audience"><i>◉</i>Live audience vote</button>
+    <button data-xp="talk"><i>💬</i>Talk to the building</button>
+    <button data-xp="negotiate"><i>🤝</i>Green-lease negotiation</button>
+    <button data-xp="story"><i>▶</i>A day in 2035</button>
+    <span class="xp-target">Building: <b id="xpTarget"></b> <span class="muted">(click the map to change)</span></span>
+  </nav>
+
+  <main class="layout">
+    <section class="card map-card">
+      <div class="sec-head">
+        <span class="sec-no">01 /</span><span class="sec-title">Portfolio twin</span>
+        <span class="sec-meta">12 ASSETS · SG · CRREM 1.5°C</span>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--red)"></i>Strands ≤2027</span>
+        <span><i style="background:var(--amber)"></i>2028–32</span>
+        <span><i style="background:var(--yellow)"></i>2033–40</span>
+        <span><i style="background:var(--green)"></i>Aligned</span>
+        <span class="muted">▮ height = tCO₂e/yr</span>
+      </div>
+      <div class="map-wrap">
+        <div id="map"></div>
+        <div class="map-tools">
+          <button data-view="portfolio" title="Whole portfolio, 3D emissions columns">⊞ Portfolio</button>
+          <button data-view="street" title="Fly to the selected asset in the 3D city">⌖ Street 3D</button>
+          <button data-view="flat" title="Top-down 2D view">▭ 2D</button>
+        </div>
+      </div>
+      <div class="map-meta"><span id="cursorCoords">LAT —— · LNG ——</span><span>WebGL · OSM 3D · Esri <span id="tileName">dark</span> grey</span></div>
+    </section>
+
+    <section class="card detail-card" id="detail"></section>
+
+    <section class="card tabs-card">
+      <div class="sec-head">
+        <span class="sec-no">03 /</span><span class="sec-title">Decision engine</span>
+        <span class="sec-meta">NSGA-II · ISO 7730 · CLAUDE TOOL USE</span>
+      </div>
+      <nav class="tabs">
+        <button data-tab="optimiser" class="active"><span class="no">03.A</span>Optimiser</button>
+        <button data-tab="copilot"><span class="no">03.B</span>Copilot</button>
+        <button data-tab="live"><span class="no">03.C</span>Live ops<span class="badge" id="liveBadge" hidden></span></button>
+        <button data-tab="table"><span class="no">03.D</span>Asset register</button>
+        <button data-tab="diff"><span class="no">03.E</span>ESG report diff</button>
+      </nav>
+
+      <div class="tab-panel active" id="tab-optimiser">
+        <div class="opt-grid">
+          <div class="opt-controls">
+            <p class="lede">A <b>NSGA-II genetic algorithm</b> evolves thousands of retrofit plans across every asset and returns the
+              <b>Pareto frontier</b>: the best achievable trade-offs between carbon and occupant wellbeing.</p>
+            <label>Capex budget <b id="budgetVal">S$15M</b></label>
+            <input type="range" id="budget" min="1" max="60" step="1" value="15">
+            <label>Priority <b id="priorityVal">Balanced</b></label>
+            <input type="range" id="priority" min="0" max="100" value="50">
+            <div class="range-ends"><span>Carbon</span><span>People</span></div>
+            <button class="btn wide" id="btnRun">▶ Run optimiser</button>
+            <div class="opt-status" id="optStatus">IDLE · AWAITING RUN</div>
+          </div>
+          <div class="opt-chart"><canvas id="paretoChart"></canvas></div>
+        </div>
+        <div id="optPlan"></div>
+      </div>
+
+      <div class="tab-panel" id="tab-copilot">
+        <div class="ai-bar">
+          <span class="ai-status" id="aiStatus"></span>
+          <form class="ai-key" id="aiKeyForm">
+            <input type="password" id="aiKey" autocomplete="off" placeholder="Anthropic API key (sk-ant-…)">
+            <button class="btn sm">Connect Claude</button>
+          </form>
+          <button class="btn ghost sm" id="aiDisconnect" hidden>Disconnect</button>
+          <button class="btn ghost sm" id="aiNewChat">New chat</button>
+        </div>
+        <p class="ai-note">The key is sent only to api.anthropic.com and stored in this browser. Fine for a demo; a public deployment should call Claude from a server.</p>
+        <div class="chat" id="chatLog"></div>
+        <div class="chips" id="chips"></div>
+        <form class="chat-form" id="chatForm">
+          <input id="chatInput" autocomplete="off" placeholder="> I have S$10M, maximise carbon cut without hurting comfort_">
+          <button class="btn">Ask</button>
+        </form>
+      </div>
+
+      <div class="tab-panel" id="tab-live">
+        <div class="live-stats" id="liveStats"></div>
+        <p class="sub">Simulated IoT stream (CO₂, temperature, occupancy) and occupant QR votes. Insights are generated in real time.</p>
+        <ul class="feed" id="feed"></ul>
+      </div>
+
+      <div class="tab-panel" id="tab-table">
+        <div class="table-wrap" id="tableWrap"></div>
+      </div>
+
+      <div class="tab-panel" id="tab-diff">
+        <p class="lede">Upload two ESG or sustainability reports from the same organisation, such as FY2021 and FY2025. The <b>offline engine</b> extracts
+          the metrics, targets, frameworks and disclosures from both in your browser (no API key needed) and returns a structured diff: KPI changes,
+          target changes, methodology and boundary shifts, and possible greenwashing.</p>
+        <div class="diff-inputs">
+          <label class="drop" data-slot="a">
+            <input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" hidden>
+            <span class="drop-tag">A · Earlier report</span><b class="drop-name"></b><span class="drop-meta"></span>
+          </label>
+          <label class="drop" data-slot="b">
+            <input type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" hidden>
+            <span class="drop-tag">B · Later report</span><b class="drop-name"></b><span class="drop-meta"></span>
+          </label>
+          <div class="diff-actions">
+            <button class="btn" id="diffRun">⇄ Compare reports</button>
+            <button class="btn ghost sm" id="diffAi" hidden>✦ Deep analysis with Claude</button>
+            <button class="btn ghost sm" id="diffSample">Load sample reports (fictional)</button>
+          </div>
+        </div>
+        <div class="diff-status" id="diffStatus"></div>
+        <div id="diffResult"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Equilibria · hackathon prototype · synthetic data</span>
+    <span>PMV per ISO 7730 · illustrative CRREM-style pathways · SG grid 0.412 kgCO₂e/kWh</span>
+  </footer>
+
+  <div class="modal" id="reportModal" hidden>
+    <div class="modal-box">
+      <div class="modal-bar">
+        <span>04 / ESG report</span>
+        <div><button class="btn ghost sm" id="btnPrint">Print / PDF</button> <button class="btn sm" id="btnCloseReport">Close</button></div>
+      </div>
+      <div class="report" id="reportBody"></div>
+    </div>
+  </div>
+
+  <div class="modal xp-modal" id="xpModal" hidden>
+    <div class="modal-box xp-box">
+      <div class="modal-bar"><span id="xpTitle"></span><button class="btn sm" id="xpClose">Close ✕</button></div>
+      <div class="xp-body" id="xpBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/optimizer.js"></script>
+  <script src="js/tools.js"></script>
+  <script src="js/copilot.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/samples.js"></script>
+  <script src="js/esgrules.js"></script>
+  <script src="js/reportdiff.js"></script>
+  <script src="js/talk.js"></script>
+  <script src="js/negotiate.js"></script>
+  <script src="js/story.js"></script>
+  <script src="js/audience.js"></script>
+</body>
+</html>
