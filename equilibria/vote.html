@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Equilibria Vote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap">
+  <style>
+    :root { --bg: #0b0e10; --panel: #151a1e; --ink: #e6ecef; --muted: #8a959c; --line: rgba(255,255,255,.12); --accent: #00e5ff; --on-accent: #001417; color-scheme: dark; }
+    @media (prefers-color-scheme: light) {
+      :root { --bg: #f3f4f1; --panel: #ffffff; --ink: #0d1418; --muted: #52606a; --line: rgba(13,20,24,.14); --accent: #007f99; --on-accent: #ffffff; color-scheme: light; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 'JetBrains Mono', monospace; min-height: 100vh; }
+    main { max-width: 480px; margin: 0 auto; padding: 24px 16px 40px; }
+    .tag { color: var(--accent); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { font: 600 26px/1.15 'Space Grotesk', sans-serif; margin: 8px 0 6px; }
+    p { color: var(--muted); margin: 0 0 18px; }
+    .step[hidden] { display: none; }
+    .choices { display: grid; gap: 10px; }
+    .choices.two { grid-template-columns: 1fr 1fr; }
+    button { font: 500 18px 'Space Grotesk', sans-serif; padding: 18px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; text-align: left; }
+    button:active, button.picked { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+    .big { font-size: 40px; text-align: center; margin: 30px 0 10px; }
+    .link { background: none; border: 0; color: var(--accent); font: 12px 'JetBrains Mono', monospace; padding: 0; text-decoration: underline; }
+    .err { color: #ff4d4d; font-size: 12px; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="tag">Equilibria · live vote</div>
+    <section class="step" id="s1">
+      <h1>You're inside <span id="bName">the building</span>.</h1>
+      <p>The air-con is set to <b id="temp">22</b>°C. How do you feel right now?</p>
+      <div class="choices">
+        <button data-feel="cold">❄ Too cold</button>
+        <button data-feel="ok">🙂 Just right</button>
+        <button data-feel="warm">🔥 Too warm</button>
+        <button data-feel="stuffy">😮‍💨 Stuffy, the air feels stale</button>
+      </div>
+    </section>
+    <section class="step" id="s2" hidden>
+      <h1>One trade-off.</h1>
+      <p>Would you accept <b>25.5°C with a quiet ceiling fan</b> if it cut this building's emissions by <b id="save">1,000</b> tonnes of CO₂ a year?</p>
+      <div class="choices two">
+        <button data-accept="true">Yes</button>
+        <button data-accept="false">No</button>
+      </div>
+    </section>
+    <section class="step" id="s3" hidden>
+      <div class="big">✓</div>
+      <h1>Thanks. Look at the big screen.</h1>
+      <p>Your vote is live. You can change it any time.</p>
+      <button class="link" id="again">Change my vote</button>
+    </section>
+    <div class="err" id="err"></div>
+  </main>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const topic = q.get('s');
+    document.getElementById('bName').textContent = q.get('b') || 'the building';
+    document.getElementById('temp').textContent = q.get('t') || '22';
+    document.getElementById('save').textContent = Number(q.get('save') || 1000).toLocaleString('en-SG');
+
+    let id;
+    try { id = localStorage.getItem('eq-voter'); } catch (e) { /* storage unavailable */ }
+    if (!id) {
+      id = Math.random().toString(36).slice(2, 12);
+      try { localStorage.setItem('eq-voter', id); } catch (e) { /* storage unavailable */ }
+    }
+
+    const show = n => ['s1', 's2', 's3'].forEach((s, k) => { document.getElementById(s).hidden = k !== n; });
+    const err = document.getElementById('err');
+
+    async function send(payload) {
+      if (!topic) { err.textContent = 'This link is missing its session code. Scan the QR code again.'; return false; }
+      try {
+        const res = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, { method: 'POST', body: JSON.stringify({ id, ...payload }) });
+        if (!res.ok) throw new Error(res.status);
+        err.textContent = '';
+        return true;
+      } catch (e) {
+        err.textContent = 'Could not send your vote. Check your connection and tap again.';
+        return false;
+      }
+    }
+
+    document.querySelectorAll('[data-feel]').forEach(b => b.addEventListener('click', async () => {
+      b.classList.add('picked');
+      if (await send({ feel: b.dataset.feel })) show(1);
+      b.classList.remove('picked');
+    }));
+    document.querySelectorAll('[data-accept]').forEach(b => b.addEventListener('click', async () => {
+      b.classList.add('picked');
+      if (await send({ accept: b.dataset.accept === 'true' })) show(2);
+      b.classList.remove('picked');
+    }));
+    document.getElementById('again').addEventListener('click', () => show(0));
+  </script>
+</body>
+</html>
