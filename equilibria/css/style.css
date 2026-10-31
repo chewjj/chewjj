@@ -956,14 +956,14 @@ i.st-crit { background: var(--red); } i.st-risk { background: var(--amber); } i.
 .st-warn[hidden] { display: none; }
 .st-col-title .hint { margin-left: 8px; text-transform: none; letter-spacing: 0; font-size: 10px; }
 
-/* glossary tooltips */
-.info {
+/* glossary tooltips (button.info only: alerts also use an 'info' class) */
+button.info {
   display: inline-grid; place-items: center; width: 15px; height: 15px; padding: 0; margin-left: 4px; vertical-align: 1px;
   border-radius: 50%; border: 1px solid var(--line-2); background: transparent; color: var(--muted);
   font: 600 9px/1 var(--sans); letter-spacing: 0; text-transform: none; cursor: help;
 }
-.info:hover, .info:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
-[data-term]:not(.info) { cursor: help; }
+button.info:hover, button.info:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+[data-term]:not(button) { cursor: help; }
 .term-tip {
   position: fixed; z-index: 2100; max-width: 320px; padding: 10px 12px; pointer-events: none;
   background: var(--panel); color: var(--ink); border: 1px solid var(--accent); box-shadow: 0 10px 28px rgba(0, 0, 0, .25);
@@ -973,7 +973,7 @@ i.st-crit { background: var(--red); } i.st-risk { background: var(--amber); } i.
 .term-tip b { display: block; margin-bottom: 3px; font: 500 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
 
 /* tooltips beside labels that use flex layouts */
-.st-setup label .info, .opt-controls label .info { margin-right: auto; margin-left: 6px; }
-.panel-head h2 + .info, .sec-title + .info { margin-left: 2px; }
-.deal-head .info { margin-left: -4px; }
+.st-setup label button.info, .opt-controls label button.info { margin-right: auto; margin-left: 6px; }
+.panel-head h2 + button.info, .sec-title + button.info { margin-left: 2px; }
+.deal-head button.info { margin-left: -4px; }
 .term-word { border-bottom: 1px dotted currentColor; }

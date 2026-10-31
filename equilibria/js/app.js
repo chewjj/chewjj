@@ -1168,7 +1168,7 @@ function refreshAll() {
 function bindEvents() {
   bindTerms();
   document.addEventListener('click', ev => {
-    if (ev.target.closest('.info')) { ev.preventDefault(); ev.stopPropagation(); return; } // info buttons only explain
+    if (ev.target.closest('button.info')) { ev.preventDefault(); ev.stopPropagation(); return; } // info buttons only explain
     const chip = ev.target.closest('.chip-action');
     if (chip && !chip.disabled) {
       state.plan[state.selected] ^= 1 << +chip.dataset.k;
