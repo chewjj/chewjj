@@ -26,7 +26,12 @@ function readTheme() {
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   try { localStorage.setItem('eq-theme', theme); } catch (e) { /* storage unavailable */ }
-  document.querySelectorAll('[data-theme-set]').forEach(b => b.classList.toggle('active', b.dataset.themeSet === theme));
+  const next = theme === 'dark' ? 'light' : 'dark';
+  const label = document.getElementById('themeLabel');
+  if (label) {
+    label.textContent = next;
+    document.getElementById('themeIcon').setAttribute('href', next === 'light' ? '#i-sun' : '#i-moon');
+  }
   readTheme();
   $('#tileName').textContent = theme;
   applyMapTheme(theme);
@@ -85,18 +90,41 @@ function planTableHTML(genes) {
   </table>`;
 }
 
-// ---------- KPI bar ----------
+// ---------- overview metric cards ----------
+
+const icon = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+
+function spark(values, label) {
+  const max = Math.max(...values) || 1;
+  return `<div class="spark" title="${label}">${values.map(v => `<i style="height:${Math.max(4, (v / max) * 100)}%"></i>`).join('')}</div>`;
+}
 
 function renderKPIs() {
   const s = statsWithSavings(state.plan), b = BASE_STATS;
-  let n = 0;
-  const tile = (label, value, extra) => `<div class="kpi"><span data-k="K${++n}">${label}</span><b>${value}</b><em>${extra || '&nbsp;'}</em></div>`;
+  const gfa = BUILDINGS.reduce((sum, x) => sum + x.gfa, 0);
+  const years = YEARS.filter((y, k) => k % 2 === 0).slice(0, 12);
+  const tonnes = years.map(y => state.plan.reduce((sum, m, i) => sum + (CACHE[i][m].kwh * gridEF(y)) / 1000, 0));
+  const stranded = years.map(y => state.plan.filter((m, i) => CACHE[i][m].strand !== null && CACHE[i][m].strand <= y).length);
+  const pct = (now, base) => Math.abs(((now - base) / base) * 100).toFixed(1);
+  const card = (ico, tone, label, value, unit, change, changeTone, sparkVals, sparkLabel) => `
+    <article class="metric-card">
+      <div class="metric-icon ${tone}">${icon(ico)}</div>
+      <div class="metric-label">${label}</div>
+      <div class="metric-value">${value} <small>${unit}</small></div>
+      <div class="metric-change ${changeTone}">${change}</div>
+      ${spark(sparkVals, sparkLabel)}
+    </article>`;
   $('#kpis').innerHTML = [
-    tile('Portfolio emissions', `${fmt.int(s.carbon)} <small>tCO₂e/yr</small>`, deltaTag(s.carbon, b.carbon)),
-    tile('Carbon intensity', `${s.intensity.toFixed(1)} <small>kg/m²</small>`, deltaTag(s.intensity, b.intensity)),
-    tile('Stranded by 2030', `${s.stranded} <small>/ ${BUILDINGS.length}</small>`, s.stranded < b.stranded ? `<span class="delta good">from ${b.stranded}</span>` : 'CRREM 1.5°C'),
-    tile('People Score', `${s.people.toFixed(1)} <small>/ 100</small>`, deltaPts(s.people, b.people)),
-    tile('Capex committed', fmt.money(s.capex), s.savings > 0 ? `saves ${fmt.money(s.savings)}/yr` : ''),
+    card('cloud', 'green', 'Portfolio emissions', fmt.int(s.carbon), 'tCO₂e/yr',
+      s.carbon < b.carbon ? `↓ ${pct(s.carbon, b.carbon)}% vs baseline` : 'Baseline · no measures applied', s.carbon < b.carbon ? 'good' : '', tonnes, 'Projected emissions to 2047'),
+    card('bolt', 'cyan', 'Carbon intensity', s.intensity.toFixed(1), 'kgCO₂e/m²',
+      s.intensity < b.intensity ? `↓ ${pct(s.intensity, b.intensity)}% vs baseline` : 'Scope 2 · SG grid', s.intensity < b.intensity ? 'good' : '', tonnes.map(t => (t * 1000) / gfa), 'Projected intensity to 2047'),
+    card('alert', 'amber', 'Stranded by 2030', s.stranded, `/ ${BUILDINGS.length} assets`,
+      s.stranded < b.stranded ? `↓ from ${b.stranded} at baseline` : 'CRREM 1.5°C pathway', s.stranded < b.stranded ? 'good' : 'bad', stranded, 'Cumulative stranded assets by year'),
+    card('users', 'cyan', 'People Score', s.people.toFixed(1), '/ 100',
+      s.people > b.people + 0.05 ? `↑ ${(s.people - b.people).toFixed(1)} pts vs baseline` : 'Comfort · air · satisfaction', s.people > b.people + 0.05 ? 'good' : '', state.plan.map((m, i) => CACHE[i][m].people).sort((x, y) => x - y), 'People Score by building'),
+    card('wallet', '', 'Capex committed', fmt.money(s.capex), '',
+      s.savings > 0 ? `saves ${fmt.money(s.savings)}/yr` : 'No retrofits committed', s.savings > 0 ? 'good' : '', state.plan.map((m, i) => CACHE[i][m].capex + 1).sort((x, y) => x - y), 'Capex by building'),
   ].join('');
 }
 
@@ -156,6 +184,8 @@ function initMap() {
         omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors' },
         assets: { type: 'geojson', data: empty },
         ring: { type: 'geojson', data: empty },
+        flows: { type: 'geojson', data: empty },
+        homes: { type: 'geojson', data: empty },
       },
       layers: [
         { id: 'base-dark', type: 'raster', source: 'base-dark', layout: { visibility: theme === 'dark' ? 'visible' : 'none' } },
@@ -168,6 +198,11 @@ function initMap() {
             'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
             'fill-extrusion-opacity': 0.9,
           } },
+        { id: 'flow-lines', type: 'line', source: 'flows', maxzoom: STREET_ZOOM, layout: { 'line-cap': 'round' },
+          paint: { 'line-color': C.accent, 'line-opacity': 0.55, 'line-width': ['interpolate', ['linear'], ['get', 'heads'], 0, 0.5, 300, 7] } },
+        { id: 'home-dots', type: 'circle', source: 'homes', maxzoom: STREET_ZOOM,
+          paint: { 'circle-color': C.accent, 'circle-opacity': 0.25, 'circle-stroke-color': C.accent, 'circle-stroke-width': 1.5,
+            'circle-radius': ['interpolate', ['linear'], ['get', 'heads'], 0, 4, 400, 22] } },
         { id: 'ring-far', type: 'line', source: 'ring', maxzoom: STREET_ZOOM, filter: ['==', ['get', 'scale'], 'far'],
           paint: { 'line-color': C.accent, 'line-width': 2, 'line-dasharray': [2, 1] } },
         { id: 'ring-near', type: 'line', source: 'ring', minzoom: STREET_ZOOM, filter: ['==', ['get', 'scale'], 'near'],
@@ -200,17 +235,55 @@ function initMap() {
   el.className = 'map-label';
   mapLabel = new maplibregl.Marker({ element: el, anchor: 'top', offset: [0, 14] });
 
+  map.on('mousemove', 'flow-lines', ev => {
+    const p = ev.features[0].properties;
+    mapPopup.setLngLat(ev.lngLat).setHTML(`<b>${p.from} → ${p.to}</b><br>~${fmt.int(p.heads)} people (office-day weighted)<br><span class="muted">${p.scenario}</span>`).addTo(map);
+  });
+  map.on('mousemove', 'home-dots', ev => {
+    const p = ev.features[0].properties;
+    mapPopup.setLngLat(ev.lngLat).setHTML(`<b>${p.name} region</b><br>~${fmt.int(p.heads)} ${ORG.name} people live here<br><span class="muted">aggregated, groups under ${K_MIN} merged</span>`).addTo(map);
+  });
+  ['flow-lines', 'home-dots'].forEach(l => map.on('mouseleave', l, () => mapPopup.remove()));
+
   map.on('load', () => {
     mapReady = true;
-    portfolioView(2600);
+    if (currentPage === 'portfolio') { mapFramed = true; portfolioView(2600); }
     updateMap();
+    if (pendingFlows) setCommuteFlows(...pendingFlows);
   });
+}
+
+// Commute flows for the Workplace Scenario Studio: curved lines from home regions to the scenario's sites
+let pendingFlows = null;
+
+function setCommuteFlows(flows, scenarioName) {
+  if (!mapReady) { pendingFlows = [flows, scenarioName]; return; }
+  const arc = (a, b) => {
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    const cx = mx - (b[1] - a[1]) * 0.25, cy = my + (b[0] - a[0]) * 0.25;
+    return Array.from({ length: 21 }, (_, k) => {
+      const t = k / 20;
+      return [(1 - t) ** 2 * a[0] + 2 * (1 - t) * t * cx + t * t * b[0], (1 - t) ** 2 * a[1] + 2 * (1 - t) * t * cy + t * t * b[1]];
+    });
+  };
+  const lines = flows.filter(f => f.heads >= 1).map(f => {
+    const r = REGION_BY_ID[f.region], s = buildingById(f.site);
+    return { type: 'Feature', properties: { heads: f.heads, from: r.name, to: s.name, scenario: scenarioName },
+      geometry: { type: 'LineString', coordinates: arc([r.lng, r.lat], [s.lng, s.lat]) } };
+  });
+  const homes = REGIONS.map(r => ({
+    type: 'Feature', properties: { name: r.name, heads: flows.filter(f => f.region === r.id).reduce((s, f) => s + f.heads, 0) },
+    geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
+  })).filter(f => f.properties.heads > 0);
+  map.getSource('flows').setData({ type: 'FeatureCollection', features: lines });
+  map.getSource('homes').setData({ type: 'FeatureCollection', features: homes });
 }
 
 function portfolioView(duration = 1200) {
   const bounds = new maplibregl.LngLatBounds();
   BUILDINGS.forEach(b => bounds.extend([b.lng, b.lat]));
   const cam = map.cameraForBounds(bounds, { padding: 40, bearing: PORTFOLIO_VIEW.bearing });
+  if (!cam) return; // map is on a hidden page; framed when the page opens
   map.flyTo({ ...cam, zoom: cam.zoom + 0.25, ...PORTFOLIO_VIEW, duration, essential: true });
 }
 
@@ -248,6 +321,9 @@ function applyMapTheme(theme) {
   map.setLayoutProperty('base-light', 'visibility', theme === 'light' ? 'visible' : 'none');
   map.setPaintProperty('city', 'fill-extrusion-color', CITY_COLOR[theme]);
   map.setPaintProperty('ring-far', 'line-color', C.accent);
+  map.setPaintProperty('flow-lines', 'line-color', C.accent);
+  map.setPaintProperty('home-dots', 'circle-color', C.accent);
+  map.setPaintProperty('home-dots', 'circle-stroke-color', C.accent);
   map.setPaintProperty('ring-near', 'line-color', C.accent);
 }
 
@@ -275,7 +351,7 @@ function renderDetail() {
   const savings = (base.kwh - e.kwh) * TARIFF;
   $('#detail').innerHTML = `
     <div class="sec-head">
-      <span class="sec-no">02 /</span><span class="sec-title">Asset spec sheet</span>
+      <span class="sec-no">02</span><span class="sec-title">Asset spec sheet</span>
       <span class="sec-meta">${b.id} · ${String(i + 1).padStart(2, '0')}/${BUILDINGS.length}</span>
       <span class="live-pill"><i></i>LIVE</span>
     </div>
@@ -463,15 +539,152 @@ function applyPlan(genes) {
 
 // ---------- portfolio table ----------
 
+const STATUS_NAME = { crit: 'Stranded', risk: 'At risk', watch: 'Monitor', ok: 'Aligned' };
+
 function renderTable() {
-  $('#tableWrap').innerHTML = `<table class="ptable">
-    <tr><th>Building</th><th>Type</th><th>GFA m²</th><th>kgCO₂e/m²</th><th>Stranding</th><th>People</th><th>PMV</th><th>Measures</th><th>Capex</th></tr>
-    ${BUILDINGS.map((b, i) => { const e = cur(i); return `<tr data-building="${i}" class="${i === state.selected ? 'sel' : ''}">
-      <td><b>${b.name}</b><br><span class="muted">${b.area}</span></td><td>${b.type}</td><td>${fmt.int(b.gfa)}</td>
-      <td>${e.intensity.toFixed(0)}</td><td>${strandTag(e.strand)}</td><td>${e.people.toFixed(0)}</td><td>${e.pmv.toFixed(2)}</td>
-      <td>${actionIcons(e.mask)}</td><td>${fmt.money(e.capex)}</td></tr>`; }).join('')}
+  $('#tableWrap').innerHTML = `<table class="ptable dtable">
+    <thead><tr><th>Asset</th><th>Type</th><th>GFA m²</th><th>Carbon <small>kgCO₂e/m²</small></th><th>vs base</th><th>People score</th><th>PMV</th><th>CRREM status</th><th>Measures</th><th>Capex</th><th></th></tr></thead>
+    <tbody>${BUILDINGS.map((b, i) => {
+      const e = cur(i), o = BASELINE[i], cls = strandClass(e.strand), d = (e.intensity / o.intensity - 1) * 100;
+      return `<tr data-building="${i}" class="${i === state.selected ? 'sel' : ''}">
+        <td><strong>${b.name}</strong><span>${b.area} · ${b.id}</span></td><td>${b.type}</td><td>${fmt.int(b.gfa)}</td>
+        <td>${e.intensity.toFixed(0)}</td><td class="${d < -0.5 ? 'good-txt' : 'muted'}">${d < -0.5 ? `${d.toFixed(1)}%` : '—'}</td>
+        <td><div class="occ"><i style="--fill:${e.people.toFixed(0)}%"></i><span>${e.people.toFixed(0)}</span></div></td>
+        <td>${e.pmv.toFixed(2)}</td>
+        <td><span class="status-pill"><i class="st-${cls}"></i>${STATUS_NAME[cls]} · ${strandLabel(e.strand)}</span></td>
+        <td>${actionIcons(e.mask)}</td><td>${fmt.money(e.capex)}</td><td><span class="row-btn">›</span></td></tr>`;
+    }).join('')}</tbody>
   </table>`;
 }
+
+// ---------- overview panels ----------
+
+let ovHorizon = 2040;
+
+function renderOverviewPerf() {
+  const years = YEARS.filter(y => y <= ovHorizon);
+  const gfa = BUILDINGS.reduce((s, b) => s + b.gfa, 0);
+  const series = plan => years.map(y => plan.reduce((sum, m, i) => sum + CACHE[i][m].kwh * gridEF(y), 0) / gfa);
+  const actual = series(state.plan), base = series(BUILDINGS.map(() => 0));
+  const target = years.map(y => BUILDINGS.reduce((s, b) => s + pathwayAt(b.type, y) * b.gfa, 0) / gfa);
+  const W = 760, H = 220, L = 46, R = 16, T = 10, B = 26;
+  const yMax = Math.ceil(Math.max(...base, ...target) / 20) * 20;
+  const x = y => L + ((y - years[0]) / (years.at(-1) - years[0])) * (W - L - R);
+  const y = v => T + (1 - v / yMax) * (H - T - B);
+  const path = s => s.map((v, k) => `${k ? 'L' : 'M'}${x(years[k]).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const step = ovHorizon - 2025 > 15 ? 5 : ovHorizon - 2025 > 8 ? 2 : 1;
+  const ticks = years.filter(yr => (yr - 2025) % step === 0 || yr === years.at(-1));
+  const gap = actual.at(-1) - target.at(-1);
+  $('#ovPerf').innerHTML = `
+    <div class="chart-summary">
+      <div><span>Intensity ${years[0]}</span><strong>${actual[0].toFixed(1)} <small>kgCO₂e/m²</small></strong></div>
+      <div><span>Intensity ${ovHorizon}</span><strong>${actual.at(-1).toFixed(1)} <small>kgCO₂e/m²</small></strong></div>
+      <div><span>vs 1.5°C pathway</span><strong class="${gap > 0 ? 'bad-txt' : 'good-txt'}">${gap > 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}</strong></div>
+      <div class="legend"><span><i class="line-key"></i>Current plan</span><span><i class="line-key base"></i>Baseline</span><span><i class="line-key dash"></i>1.5°C pathway</span></div>
+    </div>
+    <div class="ov-chart"><svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="Portfolio carbon intensity against the 1.5°C pathway to ${ovHorizon}">
+      ${[0, 0.25, 0.5, 0.75, 1].map(f => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(yMax * f)}" y2="${y(yMax * f)}"/><text class="axis" x="${L - 8}" y="${y(yMax * f) + 4}" text-anchor="end">${Math.round(yMax * f)}</text>`).join('')}
+      ${ticks.map(yr => `<text class="axis" x="${x(yr)}" y="${H - 6}" text-anchor="middle">${yr}</text>`).join('')}
+      <path class="area" d="${path(actual)}L${x(years.at(-1))},${y(0)}L${x(years[0])},${y(0)}Z"/>
+      <path class="base" d="${path(base)}"/><path class="target" d="${path(target)}"/><path class="actual" d="${path(actual)}"/>
+      ${ticks.map(yr => { const k = years.indexOf(yr); return `<circle cx="${x(yr)}" cy="${y(actual[k])}" r="3.5"/>`; }).join('')}
+      ${years.map((yr, k) => `<rect class="hov" x="${x(yr) - (W - L - R) / years.length / 2}" y="${T}" width="${(W - L - R) / years.length}" height="${H - T - B}" data-tip="${yr} · plan ${actual[k].toFixed(1)} · baseline ${base[k].toFixed(1)} · pathway ${target[k].toFixed(1)} kgCO₂e/m²"/>`).join('')}
+    </svg></div>`;
+}
+
+function renderOverviewHealth() {
+  const s = portfolioStats(state.plan);
+  const classes = state.plan.map((m, i) => strandClass(CACHE[i][m].strand));
+  const count = c => classes.filter(x => x === c).length;
+  const label = s.people >= 85 ? 'Excellent' : s.people >= 75 ? 'Good' : s.people >= 65 ? 'Fair' : 'Needs attention';
+  $('#ovHealth').innerHTML = `
+    <div class="health-visual">
+      <div class="donut" style="--pct:${s.people.toFixed(0)}%"><div><strong>${s.people.toFixed(0)}</strong><span>/ 100</span></div></div>
+      <div class="health-copy"><span>Portfolio People Score</span><strong>${label}</strong>
+        <p>Comfort, air quality and satisfaction, weighted by headcount. ${s.stranded} of ${BUILDINGS.length} assets strand by 2030.</p></div>
+    </div>
+    <div class="health-breakdown">
+      ${['ok', 'watch', 'risk', 'crit'].map(c => `<div class="score"><div><span><i class="st-${c}"></i>${STATUS_NAME[c]}</span><strong>${count(c)}</strong></div>
+        <div class="score-track"><i class="st-${c}" style="width:${(count(c) / BUILDINGS.length) * 100}%"></i></div></div>`).join('')}
+    </div>`;
+}
+
+function renderOverviewWork() {
+  if (typeof Studio === 'undefined' || !Studio.state.results.length || !$('#ovWork')) return;
+  const rs = [...Studio.state.results].sort((a, b) => a.rank - b.rank), top = rs[0], p = Studio.state.policy;
+  $('#ovWork').innerHTML = `<div class="ov-work">
+    <div class="ov-work-top"><strong>${top.sc.icon} ${top.sc.name}</strong>
+      <span>recommended · ${p.days} office days${p.anchors ? ' · anchor days' : ''}${p.pods ? ' · mentoring pods' : ''} · ${ORG.name} lease ends ${ORG.leaseExpiry}</span></div>
+    <div class="ov-row head"><span>#</span><span>Scenario</span><span>Score</span><span>5-yr cost</span><span>tCO₂e/yr</span><span>Juniors &gt;1 h</span></div>
+    ${rs.map(r => `<div class="ov-row" data-go="workplace"><span>${r.rank}</span><b>${r.sc.name}</b>
+      <div class="bar"><i style="width:${Math.round(r.score * 100)}%"></i></div><span>${fmt.money(r.cost5)}</span><span>${fmt.int(r.annualT)}</span>
+      <span>${Math.round(r.cohorts.early.longShare * 100)}%</span></div>`).join('')}
+  </div>`;
+}
+
+function renderOverviewAlerts() {
+  const feed = $('#feed');
+  $('#ovAlertCount').textContent = `${feed.children.length} ACTIVE`;
+  $('#ovAlerts').innerHTML = [...feed.children].slice(0, 3).map(li => {
+    const sev = li.classList.contains('warn') ? 'warn' : li.classList.contains('good') ? 'good' : 'info';
+    const body = li.querySelector('p').textContent;
+    return `<div class="ov-alert"><time>${escapeHtml(li.querySelector('.time').textContent.slice(0, 5))}</time><i class="${sev}"></i>
+      <div><strong>${escapeHtml(li.querySelector('b').textContent)}</strong><span>${escapeHtml(body.length > 92 ? `${body.slice(0, 90)}…` : body)}</span></div>
+      <button class="row-btn" data-building="${li.querySelector('[data-building]').dataset.building}" aria-label="Open building">›</button></div>`;
+  }).join('');
+}
+
+function renderOverview() {
+  renderOverviewPerf();
+  renderOverviewHealth();
+  renderOverviewWork();
+}
+
+// Shared hover tooltip for inline SVG charts (elements with data-tip)
+function bindVizTips(root) {
+  const tipEl = document.createElement('div');
+  tipEl.className = 'viz-tip';
+  tipEl.hidden = true;
+  document.body.appendChild(tipEl);
+  root.addEventListener('mousemove', ev => {
+    const t = ev.target.closest('[data-tip]');
+    tipEl.hidden = !t;
+    if (!t) return;
+    tipEl.textContent = t.dataset.tip;
+    tipEl.style.left = `${Math.min(ev.clientX + 14, window.innerWidth - tipEl.offsetWidth - 10)}px`;
+    tipEl.style.top = `${ev.clientY + 14}px`;
+  });
+  root.addEventListener('mouseleave', () => { tipEl.hidden = true; });
+}
+
+// ---------- pages ----------
+
+const PAGES = { overview: 'Overview', workplace: 'Workplace studio', portfolio: 'Portfolio twin', optimise: 'Retrofit optimiser', live: 'Live operations', copilot: 'Copilot', reports: 'Reports', experiences: 'Experiences' };
+let currentPage = 'overview', mapFramed = false;
+
+function showPage(name) {
+  if (!PAGES[name]) name = 'overview';
+  currentPage = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${name}`));
+  document.querySelectorAll('.nav-item[data-page]').forEach(b => b.classList.toggle('active', b.dataset.page === name));
+  $('#crumb').textContent = PAGES[name];
+  if (location.hash !== `#${name}`) history.replaceState(null, '', `#${name}`);
+  window.scrollTo(0, 0);
+  if (name === 'portfolio' && map) {
+    requestAnimationFrame(() => {
+      map.resize();
+      if (crremChart) crremChart.resize();
+      if (mapReady && !mapFramed) { mapFramed = true; portfolioView(1800); }
+    });
+  }
+  if (name === 'optimise' && paretoChart) requestAnimationFrame(() => paretoChart.resize());
+  if (name === 'live') $('#liveBadge').hidden = true;
+  if (name === 'reports') ReportDiff.refresh();
+}
+
+// Older code and copilot links still ask for the former tab names
+const TAB_PAGES = { optimiser: 'optimise', copilot: 'copilot', live: 'live', table: 'overview', diff: 'reports' };
+const switchTab = name => showPage(TAB_PAGES[name] || name);
 
 // ---------- copilot chat ----------
 
@@ -651,6 +864,7 @@ function tickLive() {
     };
   });
   updateLiveFields();
+  $('#lastSync').textContent = new Date().toLocaleTimeString('en-SG', { hour12: false });
   if (Math.random() < 0.45) makeAlert();
 }
 
@@ -702,8 +916,8 @@ function makeAlert() {
     <div><b>${fmt.int(312 + alertCount * 2)}</b><span>occupant votes today</span></div>
     <div><b>${alertCount}</b><span>insights generated</span></div>
     <div><b>${autoResolved}</b><span>auto-resolved</span></div>`;
-  const badge = $('#liveBadge');
-  if (!$('#tab-live').classList.contains('active')) { badge.textContent = alertCount; badge.hidden = false; }
+  if (currentPage !== 'live') $('#liveBadge').hidden = false;
+  renderOverviewAlerts();
 }
 
 // ---------- ESG report ----------
@@ -753,15 +967,8 @@ function refreshAll() {
   updateMap();
   renderDetail();
   renderTable();
+  renderOverview();
   updateParetoCurrent();
-}
-
-function switchTab(name) {
-  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
-  if (name === 'live') $('#liveBadge').hidden = true;
-  if (name === 'diff') ReportDiff.refresh();
-  if (name === 'optimiser') paretoChart.resize();
 }
 
 function bindEvents() {
@@ -773,12 +980,19 @@ function bindEvents() {
       return;
     }
     const bl = ev.target.closest('[data-building]');
-    if (bl) { ev.preventDefault(); select(+bl.dataset.building); return; }
+    if (bl) {
+      ev.preventDefault();
+      select(+bl.dataset.building);
+      if (currentPage !== 'portfolio' && !bl.closest('.modal')) showPage('portfolio');
+      return;
+    }
     const pl = ev.target.closest('[data-plan]');
     if (pl) { applyPlan(Copilot.plans[pl.dataset.plan]); return; }
     if (ev.target.closest('#btnApply') && state.chosen) applyPlan(state.chosen.genes);
-    const tab = ev.target.closest('.tabs button');
-    if (tab) switchTab(tab.dataset.tab);
+    const go = ev.target.closest('[data-go]');
+    if (go) { showPage(go.dataset.go); return; }
+    const nav = ev.target.closest('.nav-item[data-page]');
+    if (nav) { showPage(nav.dataset.page); return; }
     const sug = ev.target.closest('#chips .suggestion');
     if (sug) askCopilot(sug.textContent);
   });
@@ -814,13 +1028,43 @@ function bindEvents() {
   $('#btnReset').addEventListener('click', () => { state.plan = BUILDINGS.map(() => 0); refreshAll(); toast('Portfolio reset to baseline'); });
   $('#btnCloseReport').addEventListener('click', () => { $('#reportModal').hidden = true; });
   $('#btnPrint').addEventListener('click', () => window.print());
-  document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeSet)));
+  $('#themeBtn').addEventListener('click', () => setTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
+  $('#bellBtn').addEventListener('click', () => showPage('live'));
+  $('#settingsBtn').addEventListener('click', () => { showPage('copilot'); if (!AI.enabled()) $('#aiKey').focus(); });
+  $('#searchBtn').addEventListener('click', () => {
+    const inp = $('#searchInput');
+    inp.hidden = !inp.hidden;
+    if (!inp.hidden) inp.focus();
+  });
+  $('#searchInput').addEventListener('change', ev => {
+    const q = ev.target.value.trim();
+    if (!q) return;
+    const i = PortfolioTools.mentionedBuilding(q);
+    if (i === null) { toast(`No building matches "${q}"`); return; }
+    ev.target.value = '';
+    ev.target.hidden = true;
+    select(i);
+    showPage('portfolio');
+  });
+  $('#ovHorizon').addEventListener('click', ev => {
+    const btn = ev.target.closest('[data-h]');
+    if (!btn) return;
+    ovHorizon = +btn.dataset.h;
+    $('#ovHorizon').querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+    renderOverviewPerf();
+  });
+  window.addEventListener('hashchange', () => showPage(location.hash.slice(1)));
   const views = { portfolio: () => portfolioView(), street: streetView, flat: flatView };
   document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => mapReady && views[b.dataset.view]()));
 }
 
 function init() {
   setTheme(currentTheme());
+  const hour = new Date().getHours();
+  $('#greeting').textContent = hour < 12 ? 'Good morning.' : hour < 18 ? 'Good afternoon.' : 'Good evening.';
+  $('#searchList').innerHTML = BUILDINGS.map(b => `<option value="${b.name}">${b.area}</option>`).join('');
+  showPage(location.hash.slice(1) || 'overview');
+  bindVizTips($('#page-overview'));
   initMap();
   initPareto();
   bindEvents();

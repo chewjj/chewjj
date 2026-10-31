@@ -1,8 +1,28 @@
-# Equilibria: People-Centred Low-Carbon Portfolio Copilot
+# Equilibria: Right spaces, right places, lower carbon
 
-Cutting carbon in buildings usually costs people something: warmer offices, closed floors, stale air.
-Equilibria optimises **carbon and human wellbeing together** across a whole real-estate portfolio, and puts the
-people in the room into the decision.
+Workforce planning, employee experience and real estate decisions are usually made separately. Equilibria connects them:
+an AI-assisted scenario tool that compares **renewing, right-sizing, consolidating, relocating or going hub-and-spoke**
+on cost, carbon (building energy **and** commuting **and** fit-out), employee experience, and impacts on each career
+stage, with particular care for early-career employees. Underneath, a building layer models energy, comfort and
+CRREM stranding for every candidate site.
+
+## Navigating
+The left sidebar holds eight pages: **Overview** (metric cards, carbon pathway, asset health, workplace decision, live alerts, asset table),
+**Workplace studio**, **Portfolio twin** (3D map + asset spec sheet), **Retrofit optimiser**, **Live operations**, **Copilot**, **Reports**
+(ESG report + report diff) and **Experiences**. Each page has a deep link, e.g. `index.html#workplace`. The top bar has building search,
+the alerts bell and the light/dark switch; the gear icon opens the Claude connection.
+
+## How it answers the brief
+| Brief asks for | Where it is |
+|---|---|
+| Compare renew / consolidate / relocate with headcount, lease, occupancy and commuting data | **01 Workplace scenario studio**: 5 scenarios, hybrid-policy levers, leadership weights, side-by-side trade-offs |
+| Cost, employee experience and carbon trade-offs visible | Trade-off table (★ best per row), carbon by source chart, "Who wins, who pays" panel |
+| Building energy *and* commuting emissions | Carbon split into building energy, commuting and fit-out materials; commute flows drawn on the 3D map |
+| Multigenerational workforce, early-career impacts, mentoring, belonging, wellbeing | Modelled by **career stage** (generation as a label only): commute by stage, mentoring access index, belonging index, building comfort; safeguards suggested automatically |
+| Evidence, not stereotypes | Opt-in survey needs chart ("needs overlap more than they differ"); evidence notes in Assumptions |
+| Protect employee data | Aggregated inputs only, groups under 10 merged (k-anonymity), AI sees aggregates only; **Data & privacy** page |
+| Show assumptions clearly | **Assumptions** page lists every coefficient; all data synthetic and labelled |
+| Use AI | Claude decision memo for HR & real estate leaders and copilot, both calling the scenario model as tools; offline fallbacks throughout |
 
 ## Run
 - **Quick:** double-click `index.html`. Needs internet for map tiles, fonts and libraries. No build step.
@@ -31,7 +51,9 @@ people in the room into the decision.
 | Live ops: simulated IoT stream and real-time insights; one-click ESG report | Sensor simulation, rule engine |
 
 ## Code map (for splitting work)
-- `js/data.js`, `js/engine.js`, `js/optimizer.js`: data and models
+- `js/workforce.js`: workforce data (aggregated, synthetic), workplace scenarios and the scenario model
+- `js/studio.js`: Workplace Scenario Studio UI, privacy and assumptions pages, decision memo
+- `js/data.js`, `js/engine.js`, `js/optimizer.js`: building data and models
 - `js/tools.js`: model functions exposed to Claude and the offline copilot
 - `js/ai.js`: all Claude calls (copilot, building persona, negotiation agents, report diff)
 - `js/audience.js` + `vote.html` + `serve.js`: live audience vote
@@ -39,14 +61,16 @@ people in the room into the decision.
 - `js/app.js`: dashboard UI · `css/style.css`: styling
 
 ## 4-minute demo script
-1. **Open with the room (60s):** Slide 1 = the Live audience vote QR. "You are now occupants of Quayside Exchange. It's 22°C. Vote."
-   Show the bars filling: "Our model predicted 20% uncomfortable; you say 64%." Then: "Would you trade 25.5°C and a fan for 1,100 tonnes of CO₂?"
-   Press **Apply the audience's decision**: the dashboard opens on Quayside and its carbon column shrinks. *"That carbon only exists because people said yes."*
-2. **Talk to the building (40s):** "Why do people complain about you?", then "What would it take to get you on the 1.5°C pathway?"
-3. **Negotiate (50s):** Run the green-lease negotiation for Meridian Bay Tower; land on the comfort guarantee clause; **Sign & apply**.
-4. **Portfolio (40s):** Optimiser at S$15M → Pareto frontier → apply → stranded assets 8 → 2, People Score up ~9 points. Street 3D fly-in.
-5. **Close with 2035 (30s):** Open *A day in 2035* for a red building and scroll to the valuation and lease-renewal scenes.
-6. **If asked:** ESG report diff on the `samples/` PDFs; copilot mould question.
+1. **The decision (60s):** "Kestrel & Co.'s Raffles Place lease ends in 2027. Renew, consolidate or relocate?" In the Studio, point at the cards:
+   relocating to the green building cuts building energy, but **early-career commutes over an hour jump from 17% to 39%**, because juniors live further out
+   and rely on public transport. Hub & spokes cuts commuting carbon and long commutes to 0%.
+2. **The policy lever (40s):** Untick *Coordinated anchor days*: hub & spokes' mentoring access collapses (73 → 20) and the safeguard appears.
+   *"The same building choice is good or bad for juniors depending on the hybrid policy, so HR and real estate have to decide together."*
+3. **Trust (30s):** Open **Data & privacy** (aggregated, k ≥ 10, opt-in, AI sees aggregates only) and **Assumptions**.
+4. **AI memo (40s):** **Write decision memo**; Claude calls the scenario model and writes the memo for HR and real estate leaders.
+5. **The room (40s):** Live audience vote: judges become occupants; their votes decide the building's setpoint.
+6. **Close (30s):** *A day in 2035* for the chosen site, scrolling to the lease-renewal scene.
+7. **If asked:** green-lease negotiation, talk to the building, portfolio optimiser, ESG report diff.
 
 ## Claude
 Paste an Anthropic API key into the Copilot tab. It is checked with a free token-count call, then stored in this browser's localStorage and sent only to `api.anthropic.com`. That is fine for a hackathon demo; a public deployment should call Claude from a small server so the key is not exposed. Every feature has an offline mode.
