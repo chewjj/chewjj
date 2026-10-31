@@ -209,8 +209,9 @@ const PortfolioTools = (() => {
   function getWorkforceOverview() {
     const H = planningHeadcount();
     return {
-      organisation: `${ORG.name} (${ORG.description})`, headcount_today: ORG.headcount, planning_headcount: H,
+      organisation: 'Your organisation (illustrative workforce data)', headcount_today: ORG.headcount, planning_headcount: H,
       current_workplace: `${buildingById(ORG.currentSite).name}, ${ORG.currentArea} m², lease ends ${ORG.leaseExpiry}`,
+      candidate_sites: Studio.state.selection.candidates.map(id => `${buildingById(id).name} (${buildingById(id).area}, built ${buildingById(id).built}, rent S$${SITES[id].rent}/m²/month)`),
       career_stages: COHORTS.map(c => ({
         name: c.name, detail: c.detail, people: Math.round(H * c.share),
         home_region_share_pct: Object.fromEntries(Object.entries(privateHome(c, H).home).map(([rid, v]) => [REGION_BY_ID[rid].name, Math.round(v * 100)])),
@@ -225,7 +226,7 @@ const PortfolioTools = (() => {
   function compareWorkplaceScenarios(input = {}) {
     const policy = policyFrom(input);
     const weights = Studio.state.weights;
-    const results = scoreScenarios(SCENARIOS.map(sc => evaluateWorkplace(sc, policy)), weights);
+    const results = scoreScenarios(Studio.scenarios().map(sc => evaluateWorkplace(sc, policy)), weights);
     return { policy, weights, scenarios: results.sort((a, b) => a.rank - b.rank).map(r => ({ rank: r.rank, ...summariseWorkplace(r) })), assumptions: Object.fromEntries(ASSUMPTIONS) };
   }
 

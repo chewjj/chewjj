@@ -4,8 +4,7 @@
 // and only aggregated, opt-in figures are used: no individual employee records exist in this tool.
 
 const ORG = {
-  name: 'Kestrel & Co.',
-  description: 'fictional professional-services firm',
+  name: 'Your organisation',
   headcount: 1200,
   growth: 0.02,         // annual headcount growth
   horizon: 5,           // years compared (new lease term)
@@ -50,6 +49,7 @@ const NEEDS = [
 
 // Candidate workplaces are buildings in the portfolio. rent = S$/m²/month; amenity = 0-1 access to food, transit and third places.
 const SITES = {
+  MBT: { rent: 120, amenity: 0.95 },
   QEX: { rent: 115, amenity: 0.95 },
   PGP: { rent: 108, amenity: 0.95 },
   BGM: { rent: 86, amenity: 1.0 },
@@ -80,23 +80,65 @@ const WX = {
 
 const POLICY_DEFAULT = { days: 3, anchors: true, pods: true };
 
-const SCENARIOS = [
-  { id: 'renew', name: 'Renew as-is', icon: '↻', sites: [{ id: 'QEX', share: 1 }], area: 'current', fitout: 'renew', measures: [], move: false,
-    blurb: 'Stay at Quayside Exchange on the same 14,000 m² with a light refresh.' },
-  { id: 'rightsize', name: 'Renew, right-size & retrofit', icon: '⇲', sites: [{ id: 'QEX', share: 1 }], area: 'demand', fitout: 'reconfigure', measures: ['temp', 'dcv', 'led'], move: false,
-    blurb: 'Stay, hand back floors we no longer need, and retrofit the space we keep.' },
-  { id: 'green', name: 'Consolidate into a green building', icon: '❖', sites: [{ id: 'AGW', share: 1 }], area: 'demand', fitout: 'new', measures: [], move: true,
-    blurb: 'Move to Alexandra Green Works (2019, efficient), sized to real attendance.' },
-  { id: 'east', name: 'Relocate to Changi', icon: '→', sites: [{ id: 'CIH', share: 1 }], area: 'demand', fitout: 'new', measures: [], move: true,
-    blurb: 'Lowest rent, at Changi Business Park in the east.' },
-  { id: 'hub', name: 'Hub & spokes', icon: '✳', sites: [{ id: 'BGM', share: 0.7, hub: true }, { id: 'CIH', share: 0.15 }, { id: 'FSL', share: 0.15 }], area: 'demand', fitout: 'new', measures: [], move: true,
-    blurb: 'City-fringe hub at Bugis for anchor days, plus small east and west spokes near where people live.' },
-];
+// Which portfolio buildings are the current office and the relocation candidates (set in the Studio's first panel)
+const DEFAULT_SELECTION = { current: 'QEX', candidates: ['AGW', 'CIH', 'BGM', 'FSL'], hub: true };
 
 // ---------- helpers ----------
 
 const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
 const buildingById = id => BUILDINGS.find(b => b.id === id);
+const WORKPLACE_SITES = Object.keys(SITES);
+
+// Workforce-weighted home locations (aggregated, after privacy merging)
+function homeWeights() {
+  const H = planningHeadcount(), w = {};
+  COHORTS.forEach(c => Object.entries(privateHome(c, H).home).forEach(([rid, s]) => { w[rid] = (w[rid] || 0) + H * c.share * s; }));
+  return w;
+}
+
+// Average distance from home to the nearest of a set of sites
+function reachKm(siteIds, w = homeWeights()) {
+  const total = Object.values(w).reduce((a, b) => a + b, 0);
+  return Object.entries(w).reduce((sum, [rid, n]) => sum + n * Math.min(...siteIds.map(id => km(REGION_BY_ID[rid], buildingById(id)))), 0) / total;
+}
+
+// Hub = the most central site; spokes = the pair that brings the nearest office closest to where people live
+function pickHubAndSpokes(pool) {
+  const w = homeWeights();
+  const hub = pool.reduce((best, id) => (reachKm([id], w) < reachKm([best], w) ? id : best));
+  const rest = pool.filter(id => id !== hub);
+  let spokes = rest.slice(0, 2), bestKm = Infinity;
+  rest.forEach((a, i) => rest.slice(i + 1).forEach(b => {
+    const d = reachKm([hub, a, b], w);
+    if (d < bestKm) { bestKm = d; spokes = [a, b]; }
+  }));
+  return { hub, spokes };
+}
+
+// Build the scenario list from the sites chosen in the portfolio
+function buildScenarios(sel = DEFAULT_SELECTION) {
+  const cur = buildingById(sel.current);
+  const list = [
+    { id: 'renew', name: 'Renew as-is', icon: '↻', sites: [{ id: cur.id, share: 1 }], area: 'current', fitout: 'renew', measures: [], move: false,
+      blurb: `Stay at ${cur.name} on the same ${ORG.currentArea.toLocaleString('en-SG')} m² with a light refresh.` },
+    { id: 'rightsize', name: 'Right-size & retrofit', icon: '⇲', sites: [{ id: cur.id, share: 1 }], area: 'demand', fitout: 'reconfigure', measures: ['temp', 'dcv', 'led'], move: false,
+      blurb: `Stay at ${cur.name}, hand back floors we no longer need, and retrofit the space we keep.` },
+    ...sel.candidates.filter(id => id !== cur.id).map(id => {
+      const b = buildingById(id);
+      return { id: `move-${id}`, name: `Relocate to ${b.name}`, icon: '→', sites: [{ id, share: 1 }], area: 'demand', fitout: 'new', measures: [], move: true,
+        blurb: `Consolidate into ${b.name} (${b.area}, built ${b.built}), sized to real attendance.` };
+    }),
+  ];
+  const pool = [...new Set([cur.id, ...sel.candidates])];
+  if (sel.hub && pool.length >= 3) {
+    const { hub, spokes } = pickHubAndSpokes(pool);
+    const n = id => buildingById(id).name;
+    list.push({ id: 'hub', name: 'Hub & spokes', icon: '✳', sites: [{ id: hub, share: 0.7, hub: true }, ...spokes.map(id => ({ id, share: 0.15 }))],
+      area: 'demand', fitout: 'new', measures: [], move: true,
+      blurb: `Hub at ${n(hub)} for anchor days, with small spokes at ${n(spokes[0])} and ${n(spokes[1])} near where people live.` });
+  }
+  return list;
+}
 
 function km(a, b) {
   const rad = Math.PI / 180;

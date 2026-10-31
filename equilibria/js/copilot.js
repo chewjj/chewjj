@@ -153,7 +153,7 @@ const Copilot = (() => {
     const base = ranked.find(r => r.sc.id === 'renew');
     const p = Studio.state.policy;
     return `
-      <p>Kestrel &amp; Co.'s Raffles Place lease ends in ${ORG.leaseExpiry}. With ${p.days} office days${p.anchors ? ', coordinated anchor days' : ''} and the current leadership weights, the Workplace Scenario Studio ranks:</p>
+      <p>Your lease at ${buildingById(ORG.currentSite).name} ends in ${ORG.leaseExpiry}. From the portfolio sites selected in the studio, with ${p.days} office days${p.anchors ? ', coordinated anchor days' : ''} and the current leadership weights, the scenarios rank:</p>
       <table class="mini-table"><tr><th>#</th><th>Scenario</th><th>5-yr cost</th><th>tCO₂e/yr</th><th>Early-career &gt;1 hr</th><th>Mentoring</th></tr>
       ${ranked.map(r => `<tr><td>${r.rank}</td><td>${r.sc.name}</td><td>${fmt.money(r.cost5)}</td><td>${fmt.int(r.annualT)}</td>
         <td>${Math.round(r.cohorts.early.longShare * 100)}%</td><td>${Math.round(r.mentoring)}</td></tr>`).join('')}</table>

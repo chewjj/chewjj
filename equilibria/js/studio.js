@@ -4,9 +4,11 @@
 
 const Studio = (() => {
   const st = {
+    selection: { ...DEFAULT_SELECTION, candidates: [...DEFAULT_SELECTION.candidates] },
     policy: { ...POLICY_DEFAULT },
     weights: { cost: 25, carbon: 25, experience: 25, early: 25 },
     selected: 'hub',
+    scenarios: [],
     results: [],
   };
   const PILLARS = { cost: 'Cost', carbon: 'Carbon', experience: 'Employee experience', early: 'Early-career' };
@@ -21,7 +23,83 @@ const Studio = (() => {
   const tip = s => `data-tip="${escapeHtml(s)}"`;
 
   function compute() {
-    st.results = scoreScenarios(SCENARIOS.map(sc => evaluateWorkplace(sc, st.policy)), st.weights);
+    ORG.currentSite = st.selection.current;
+    st.scenarios = buildScenarios(st.selection);
+    st.results = scoreScenarios(st.scenarios.map(sc => evaluateWorkplace(sc, st.policy)), st.weights);
+    if (!byId(st.selected)) st.selected = st.results.find(r => r.rank === 1).sc.id;
+  }
+
+  // ---------- 01 portfolio site selection ----------
+
+  // Schematic map: simplified island outline, home regions sized by headcount, workplace buildings as clickable dots
+  const ISLAND = [[103.64, 1.32], [103.67, 1.36], [103.70, 1.41], [103.74, 1.445], [103.79, 1.47], [103.83, 1.455], [103.87, 1.43], [103.91, 1.42],
+    [103.96, 1.41], [104.02, 1.395], [104.04, 1.36], [104.0, 1.33], [103.96, 1.315], [103.91, 1.305], [103.87, 1.29], [103.84, 1.265],
+    [103.80, 1.265], [103.76, 1.275], [103.72, 1.29], [103.68, 1.30]];
+
+  function siteMap() {
+    const W = 600, H = 330;
+    const x = lng => ((lng - 103.62) / 0.44) * W, y = lat => ((1.48 - lat) / 0.24) * H;
+    const LABEL = { QEX: [14, -4], MBT: [14, 14], PGP: [-46, 12], BGM: [14, -6], AGW: [-48, 5], FSL: [-42, -8], CIH: [14, 5] };
+    const w = homeWeights();
+    const island = `<path class="sm-island" d="${ISLAND.map(([lng, lat], k) => `${k ? "L" : "M"}${x(lng).toFixed(1)},${y(lat).toFixed(1)}`).join("")}Z"/>`;
+    const regions = REGIONS.filter(r => w[r.id]).map(r => `
+      <circle class="sm-region" cx="${x(r.lng)}" cy="${y(r.lat)}" r="${14 + Math.sqrt(w[r.id]) * 1.6}" ${tip(`${r.name}: ~${fmt.int(w[r.id])} people live here (aggregated)`)}/>
+      <text class="sm-region-label" x="${x(r.lng)}" y="${y(r.lat) - 2}" text-anchor="middle">${r.name}</text>
+      <text class="sm-region-n" x="${x(r.lng)}" y="${y(r.lat) + 13}" text-anchor="middle">${fmt.int(w[r.id])}</text>`).join("");
+    const sites = WORKPLACE_SITES.map(id => {
+      const b = buildingById(id), isCur = id === st.selection.current, isCand = st.selection.candidates.includes(id);
+      const cls = isCur ? "sm-site cur" : isCand ? "sm-site on" : "sm-site";
+      return `<g class="${cls}" data-site="${id}" ${tip(`${b.name} · ${b.area}${isCur ? " · current office" : isCand ? " · candidate (click to remove)" : " · click to add as candidate"}`)}>
+        <circle cx="${x(b.lng)}" cy="${y(b.lat)}" r="16" class="sm-hit"/>
+        <circle cx="${x(b.lng)}" cy="${y(b.lat)}" r="${isCur ? 10 : 8}"/>
+        <text x="${x(b.lng) + LABEL[id][0]}" y="${y(b.lat) + LABEL[id][1]}">${id}</text></g>`;
+    }).join("");
+    return `<svg class="viz site-map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Schematic map of home regions and workplace buildings">
+      ${island}${regions}${sites}</svg>
+      <div class="sm-legend">
+        <span><i class="k-region"></i>where people live (size = headcount)</span>
+        <span><i class="k-cur"></i>current office</span><span><i class="k-on"></i>candidate</span><span><i class="k-off"></i>not considered</span>
+      </div>
+      <p class="sm-note">Schematic, not to scale for streets · home locations aggregated to 5 regions</p>`;
+  }
+
+  function renderSites() {
+    const rows = WORKPLACE_SITES.map(id => {
+      const i = BUILDINGS.findIndex(b => b.id === id), b = BUILDINGS[i], e = cur(i);
+      const isCur = id === st.selection.current, isCand = st.selection.candidates.includes(id);
+      const solo = evaluateWorkplace({ id, sites: [{ id, share: 1 }], area: 'demand', fitout: 'new', measures: [], move: !isCur }, st.policy);
+      const cls = strandClass(e.strand);
+      return `<tr class="${isCur ? 'cur' : isCand ? 'on' : ''}">
+        <td><input type="radio" name="stCurrent" value="${id}" ${isCur ? 'checked' : ''} aria-label="Current office: ${b.name}"></td>
+        <td><input type="checkbox" data-cand="${id}" ${isCand || isCur ? 'checked' : ''} ${isCur ? 'disabled' : ''} aria-label="Candidate: ${b.name}"></td>
+        <td><strong>${b.name}</strong><span>${b.area} · built ${b.built}</span></td>
+        <td>S$${SITES[id].rent}</td><td>${Math.round(e.eui)}</td><td>${Math.round(e.people)}</td>
+        <td><span class="status-pill"><i class="st-${cls}"></i>${STATUS_NAME[cls]}</span></td>
+        <td>${Math.round(solo.avgMinutes)} min</td><td>${pct(solo.cohorts.early.longShare)}</td></tr>`;
+    }).join('');
+    const pool = new Set([st.selection.current, ...st.selection.candidates]).size;
+    $('#stSites').innerHTML = `
+      <div class="st-sites-map">${siteMap()}</div>
+      <div class="st-sites-list">
+        <div class="table-wrap"><table class="ptable dtable st-site-table">
+          <thead><tr><th>Current</th><th>Candidate</th><th>Building</th><th>Rent <small>S$/m²/mo</small></th><th>Energy <small>kWh/m²</small></th>
+            <th>People <small>score</small></th><th>CRREM</th><th>Avg commute <small>if all moved here</small></th><th>Juniors &gt;1 h <small>if all moved here</small></th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+        <div class="st-sites-foot">
+          <label class="st-check"><input type="checkbox" id="stHub" ${st.selection.hub ? 'checked' : ''} ${pool < 3 ? 'disabled' : ''}>
+            Also test a hub &amp; spokes network <span class="hint">${pool < 3 ? 'needs at least 3 sites selected' : 'hub and spokes are picked automatically to minimise commuting'}</span></label>
+          <span class="muted">${st.scenarios.length} scenarios generated from ${pool} site${pool === 1 ? '' : 's'} · retail and logistics assets are not office workplaces, so they are not shown</span>
+        </div>
+      </div>`;
+    const c = buildingById(st.selection.current);
+    $('#stQuestion').innerHTML = `Our ${c.area} lease at ${c.name} ends in ${ORG.leaseExpiry}. <b>Renew, consolidate or relocate</b>, for a workforce spanning three career stages, while cutting carbon?`;
+  }
+
+  function toggleCandidate(id) {
+    if (id === st.selection.current) return;
+    const cands = st.selection.candidates;
+    st.selection.candidates = cands.includes(id) ? cands.filter(x => x !== id) : [...cands, id];
+    render();
   }
 
   // ---------- scenario cards ----------
@@ -181,7 +259,7 @@ const Studio = (() => {
     ];
     const guards = safeguards(s);
     $('#stImpact').innerHTML = `
-      <div class="sub-head"><i>01.4</i>Who wins, who pays: ${escapeHtml(s.sc.name)} <span class="hint">vs renewing as-is</span></div>
+      <div class="st-impact-title">${s.sc.icon} ${escapeHtml(s.sc.name)}</div>
       <ul class="plain st-list">${items.map(t => `<li>${t}</li>`).join('')}</ul>
       ${guards.length ? `<div class="st-guards"><b>Safeguards to consider</b><ul>${guards.map(g => `<li>${g}</li>`).join('')}</ul></div>` : ''}`;
   }
@@ -224,14 +302,15 @@ _Generated offline from the Equilibria models with synthetic, aggregated data. A
   async function writeMemo() {
     const box = $('#stMemo');
     box.hidden = false;
+    const head = note => `<div class="panel-head"><div><span>✦</span><h2>Decision memo</h2></div><span class="muted st-hint">${note}</span></div>`;
     if (!AI.enabled()) {
-      box.innerHTML = `<div class="st-memo-head"><b>Decision memo</b><span class="muted">offline · connect Claude in the Copilot tab for an AI-written memo</span></div>${renderMarkdown(offlineMemo())}`;
+      box.innerHTML = `${head('offline · connect Claude (gear icon) for an AI-written memo')}<div class="panel-body">${renderMarkdown(offlineMemo())}</div>`;
       box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
-    box.innerHTML = '<div class="st-memo-head"><b>Decision memo</b><span class="muted">written by Claude Opus 5.5 from aggregated data only</span></div><div class="msg bot ai" id="stMemoOut"></div>';
+    box.innerHTML = `${head('written by Claude Opus 5.5 from aggregated data only')}<div class="panel-body"><div class="msg bot ai" id="stMemoOut"></div></div>`;
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    const prompt = `Write a one-page decision memo for our HR and real estate leaders on whether to renew, consolidate or relocate our workplace when the Raffles Place lease ends in ${ORG.leaseExpiry}.
+    const prompt = `Write a one-page decision memo for our HR and real estate leaders on whether to renew, consolidate or relocate our workplace when our lease at ${buildingById(st.selection.current).name} (${buildingById(st.selection.current).area}) ends in ${ORG.leaseExpiry}. The scenarios compared are the ones generated from the portfolio sites currently selected: ${st.scenarios.map(s => s.name).join("; ")}.
 Current policy: ${st.policy.days} office days a week, anchor days ${st.policy.anchors ? 'coordinated' : 'not coordinated'}, mentoring pods ${st.policy.pods ? 'on' : 'off'}.
 Leadership weights: ${Object.entries(st.weights).map(([k, v]) => `${PILLARS[k]} ${v}`).join(', ')}. The scenario currently selected in the dashboard is "${sel().sc.name}".
 Use the workplace tools for every number. Cover: recommendation, cost / carbon (building vs commuting) / experience trade-offs, impacts by career stage with particular care for early-career employees (mentoring, belonging, commute), safeguards, assumptions and data limits, and next steps. Avoid generational stereotypes.`;
@@ -262,7 +341,7 @@ Use the workplace tools for every number. Cover: recommendation, cost / carbon (
         <li><b>Opt-in and transparent:</b> survey participation is voluntary; this page is the plain-language notice of what is used and why.</li>
         <li><b>Purpose-limited:</b> data is used only to plan workplaces, not to assess individual performance.</li>
       </ul>
-      <p class="muted">Kestrel &amp; Co. and every figure here are fictional, for demonstration. Planning headcount ${fmt.int(H)}.</p>`);
+      <p class="muted">All workforce figures here are illustrative, for demonstration. Planning headcount ${fmt.int(H)}.</p>`);
   }
 
   function openAssumptions() {
@@ -284,6 +363,7 @@ Use the workplace tools for every number. Cover: recommendation, cost / carbon (
 
   function render() {
     compute();
+    renderSites();
     renderCards();
     renderTable();
     $('#stCarbon').innerHTML = carbonChart();
@@ -312,8 +392,18 @@ Use the workplace tools for every number. Cover: recommendation, cost / carbon (
   function init() {
     const root = $('#studio');
     $('#stNeeds').innerHTML = needsChart();
-    $('#stOrg').textContent = `${ORG.name} (${ORG.description}) · ${fmt.int(ORG.headcount)} people · lease ends ${ORG.leaseExpiry}`;
+    $('#stOrg').textContent = `${fmt.int(ORG.headcount)} people · lease ends ${ORG.leaseExpiry}`;
+    root.addEventListener('change', ev => {
+      if (ev.target.name === 'stCurrent') {
+        st.selection.current = ev.target.value;
+        st.selection.candidates = st.selection.candidates.filter(id => id !== ev.target.value);
+        render();
+      } else if (ev.target.dataset.cand) toggleCandidate(ev.target.dataset.cand);
+      else if (ev.target.id === 'stHub') { st.selection.hub = ev.target.checked; render(); }
+    });
     root.addEventListener('click', ev => {
+      const dot = ev.target.closest('[data-site]');
+      if (dot) { toggleCandidate(dot.dataset.site); return; }
       const card = ev.target.closest('[data-sc]');
       if (card) {
         st.selected = card.dataset.sc;
@@ -325,11 +415,36 @@ Use the workplace tools for every number. Cover: recommendation, cost / carbon (
     $('#stDays').addEventListener('input', ev => { st.policy.days = +ev.target.value; $('#stDaysVal').textContent = `${st.policy.days} days`; render(); });
     $('#stAnchors').addEventListener('change', ev => { st.policy.anchors = ev.target.checked; render(); });
     $('#stPods').addEventListener('change', ev => { st.policy.pods = ev.target.checked; render(); });
-    root.querySelectorAll('[data-weight]').forEach(inp => inp.addEventListener('input', () => {
-      st.weights[inp.dataset.weight] = +inp.value;
-      inp.previousElementSibling.querySelector('b').textContent = inp.value;
-      render();
-    }));
+    // Weights run 0-100 but cannot be 0: every factor must count for something
+    root.querySelectorAll('[data-weight]').forEach(inp => {
+      const label = inp.previousElementSibling, value = label.querySelector('b');
+      const name = label.firstChild.textContent.trim();
+      const warn = document.createElement('p');
+      warn.className = 'st-warn';
+      warn.setAttribute('role', 'alert');
+      warn.hidden = true;
+      inp.after(warn);
+      inp.addEventListener('input', () => {
+        const v = +inp.value;
+        value.textContent = v;
+        inp.classList.toggle('bad', v === 0);
+        warn.hidden = v !== 0;
+        warn.textContent = `${name} cannot be 0. Set it to at least 1.`;
+        if (v === 0) return; // keep the last valid weight until a non-zero value is chosen
+        st.weights[inp.dataset.weight] = v;
+        render();
+      });
+      inp.addEventListener('change', () => {
+        if (+inp.value !== 0) return;
+        inp.value = st.weights[inp.dataset.weight];
+        value.textContent = inp.value;
+        inp.classList.remove('bad');
+        warn.textContent = `${name} cannot be 0, so it was restored to ${inp.value}.`;
+        toast(`${name} weight cannot be 0. Restored to ${inp.value}.`);
+        clearTimeout(warn.timer);
+        warn.timer = setTimeout(() => { warn.hidden = true; }, 3500);
+      });
+    });
     $('#stPrivacy').addEventListener('click', openPrivacy);
     $('#stAssumptions').addEventListener('click', openAssumptions);
     $('#stMemoBtn').addEventListener('click', writeMemo);
@@ -338,5 +453,5 @@ Use the workplace tools for every number. Cover: recommendation, cost / carbon (
   }
 
   document.addEventListener('DOMContentLoaded', init);
-  return { render, state: st, openPrivacy, openAssumptions };
+  return { render, state: st, scenarios: () => st.scenarios, openPrivacy, openAssumptions };
 })();

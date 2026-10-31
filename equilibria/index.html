@@ -55,7 +55,7 @@
       </nav>
       <div class="sidebar-bottom">
         <button class="nav-item" id="settingsBtn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-settings"/></svg><span class="nav-tip">AI settings</span></button>
-        <div class="profile" title="Kestrel &amp; Co. (fictional)">KC</div>
+        <div class="profile" title="Your organisation"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg></div>
       </div>
     </aside>
 
@@ -77,7 +77,9 @@
           <div>
             <div class="eyebrow"><i></i>Live portfolio intelligence</div>
             <h1 id="greeting">Good morning.</h1>
-            <p>Here's how Kestrel &amp; Co.'s workplace decision and the 12-building portfolio are performing today.</p>
+            <p class="scope-line">Here's how
+              <span class="scope-pick"><select id="ovScope" aria-label="Choose which buildings the overview covers"></select></span>
+              <span id="ovVerb">are</span> performing today.</p>
           </div>
           <div class="updated">LAST SYNC <strong id="lastSync">--:--:--</strong><span>·</span>ALL SYSTEMS NORMAL</div>
         </div>
@@ -102,7 +104,7 @@
             <button class="all-alerts" data-go="live">View all activity →</button>
           </article>
           <article class="panel span-all">
-            <div class="panel-head"><div><span>05</span><h2>Asset overview</h2></div><span class="muted" style="font-size:10px">12 ASSETS · CLICK A ROW TO OPEN</span></div>
+            <div class="panel-head"><div><span>05</span><h2>Asset overview</h2></div><span class="muted" style="font-size:10px" id="ovAssetCount">12 ASSETS · CLICK A ROW TO OPEN</span></div>
             <div class="table-wrap" id="tableWrap"></div>
           </article>
         </section>
@@ -117,46 +119,79 @@
             <p>Compare renewing, consolidating or relocating on cost, building and commuting carbon, and the experience of every career stage.</p>
           </div>
         </div>
-        <section class="card studio-card" id="studio">
-          <div class="sec-head">
-            <span class="sec-no">01</span><span class="sec-title">Workplace scenario studio</span>
-            <span class="sec-meta" id="stOrg"></span>
-          </div>
-          <div class="st-grid">
-            <aside class="st-controls">
-              <p class="st-question">Our Raffles Place lease ends in 2027. <b>Renew, consolidate or relocate</b>, for a workforce spanning three career stages, while cutting carbon?</p>
-              <div class="sub-head"><i>A</i>Hybrid policy</div>
-              <label>Office days per week <b id="stDaysVal">3 days</b></label>
-              <input type="range" id="stDays" min="1" max="5" step="1" value="3">
-              <label class="st-check"><input type="checkbox" id="stAnchors" checked> Coordinated anchor days <span class="hint">teams in on the same 2 days</span></label>
-              <label class="st-check"><input type="checkbox" id="stPods" checked> Mentoring &amp; learning pods <span class="hint">+5% space</span></label>
-              <div class="sub-head"><i>B</i>Leadership weights</div>
-              <div class="st-weight"><label>Cost <b>25</b></label><input type="range" data-weight="cost" min="0" max="50" value="25"></div>
-              <div class="st-weight"><label>Carbon <b>25</b></label><input type="range" data-weight="carbon" min="0" max="50" value="25"></div>
-              <div class="st-weight"><label>Employee experience <b>25</b></label><input type="range" data-weight="experience" min="0" max="50" value="25"></div>
-              <div class="st-weight"><label>Early-career <b>25</b></label><input type="range" data-weight="early" min="0" max="50" value="25"></div>
+        <div class="studio" id="studio">
+          <article class="panel">
+            <div class="panel-head"><div><span>01</span><h2>Choose sites from your portfolio</h2></div><span class="muted st-hint">pick the current office, then tick candidate buildings (or click them on the map)</span></div>
+            <div class="st-sites" id="stSites"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><span>02</span><h2>Decision setup</h2></div><span class="muted st-org" id="stOrg"></span></div>
+            <div class="st-setup">
+              <div class="st-setup-q">
+                <p class="st-question" id="stQuestion"></p>
+              </div>
+              <div class="st-setup-col">
+                <div class="st-col-title"><i>A</i>Hybrid policy</div>
+                <label>Office days per week <b id="stDaysVal">3 days</b></label>
+                <input type="range" id="stDays" min="1" max="5" step="1" value="3">
+                <label class="st-check"><input type="checkbox" id="stAnchors" checked> Coordinated anchor days <span class="hint">teams in on the same 2 days</span></label>
+                <label class="st-check"><input type="checkbox" id="stPods" checked> Mentoring &amp; learning pods <span class="hint">+5% space</span></label>
+              </div>
+              <div class="st-setup-col">
+                <div class="st-col-title"><i>B</i>Leadership weights <span class="hint">0–100</span></div>
+                <div class="st-weights">
+                  <div class="st-weight"><label>Cost <b>25</b></label><input type="range" data-weight="cost" min="0" max="100" value="25"></div>
+                  <div class="st-weight"><label>Carbon <b>25</b></label><input type="range" data-weight="carbon" min="0" max="100" value="25"></div>
+                  <div class="st-weight"><label>Employee experience <b>25</b></label><input type="range" data-weight="experience" min="0" max="100" value="25"></div>
+                  <div class="st-weight"><label>Early-career <b>25</b></label><input type="range" data-weight="early" min="0" max="100" value="25"></div>
+                </div>
+              </div>
               <div class="st-actions">
-                <button class="btn wide" id="stMemoBtn">✦ Write decision memo</button>
+                <button class="btn" id="stMemoBtn">✦ Write decision memo</button>
                 <button class="btn ghost sm" id="stPrivacy">🔒 Data &amp; privacy</button>
                 <button class="btn ghost sm" id="stAssumptions">Σ Assumptions</button>
               </div>
-            </aside>
-            <div class="st-main">
-              <div class="st-cards" id="stCards"></div>
-              <div class="st-memo" id="stMemo" hidden></div>
-              <div class="sub-head"><i>01.1</i>Trade-offs side by side <span class="hint">★ = best in row · click a card to select</span></div>
-              <div class="table-wrap" id="stTable"></div>
-              <div class="st-charts">
-                <div><div class="sub-head"><i>01.2</i>Carbon by source <span class="hint">tCO₂e per year</span></div><div class="scene-viz" id="stCarbon"></div></div>
-                <div><div class="sub-head"><i>01.3</i>Commute by career stage <span class="hint">one way, minutes</span></div><div class="scene-viz" id="stCommute"></div></div>
-              </div>
-              <div id="stImpact"></div>
-              <div class="sub-head"><i>01.5</i>What people need <span class="hint">opt-in pulse survey · % "very important" · groups under 10 suppressed</span></div>
-              <div class="scene-viz" id="stNeeds"></div>
-              <p class="axis-note st-note">Needs overlap more than they differ. The model segments by career stage, not birth year; generation is a label only. Commute flows for the selected scenario appear on the Portfolio twin map.</p>
             </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><span>03</span><h2>Scenarios</h2></div><span class="muted st-hint">Ranked with your weights · click a card to explore it</span></div>
+            <div class="panel-body"><div class="st-cards" id="stCards"></div></div>
+          </article>
+
+          <article class="panel st-memo" id="stMemo" hidden></article>
+
+          <article class="panel">
+            <div class="panel-head"><div><span>04</span><h2>Trade-offs side by side</h2></div><span class="muted st-hint">★ best in row · highlighted column = selected scenario</span></div>
+            <div class="table-wrap" id="stTable"></div>
+          </article>
+
+          <div class="st-row st-row-people">
+            <article class="panel">
+              <div class="panel-head"><div><span>05</span><h2>Who wins, who pays</h2></div><span class="muted st-hint">vs renewing as-is</span></div>
+              <div class="panel-body" id="stImpact"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head"><div><span>06</span><h2>Commute by career stage</h2></div><span class="muted st-hint">one way, minutes</span></div>
+              <div class="panel-body" id="stCommute"></div>
+            </article>
           </div>
-        </section>
+
+          <div class="st-row st-row-charts">
+            <article class="panel">
+              <div class="panel-head"><div><span>07</span><h2>Carbon by source</h2></div><span class="muted st-hint">tCO₂e per year</span></div>
+              <div class="panel-body" id="stCarbon"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head"><div><span>08</span><h2>What people need</h2></div><span class="muted st-hint">opt-in survey · % "very important"</span></div>
+              <div class="panel-body">
+                <div id="stNeeds"></div>
+                <p class="axis-note st-note">Needs overlap more than they differ. The model segments by career stage, not birth year; generation is a label only. Groups under 10 are suppressed.</p>
+              </div>
+            </article>
+          </div>
+        </div>
       </section>
 
       <!-- ===== Portfolio twin ===== -->

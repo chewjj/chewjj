@@ -61,7 +61,7 @@ the alerts bell and the light/dark switch; the gear icon opens the Claude connec
 - `js/app.js`: dashboard UI · `css/style.css`: styling
 
 ## 4-minute demo script
-1. **The decision (60s):** "Kestrel & Co.'s Raffles Place lease ends in 2027. Renew, consolidate or relocate?" In the Studio, point at the cards:
+1. **The decision (60s):** "Our lease at Quayside Exchange ends in 2027. Renew, consolidate or relocate?" In the Studio's first panel, pick the current office and tick candidate buildings from the portfolio (or click them on the map); the scenarios are generated from that selection, with the hub and spokes picked automatically to minimise commuting. Then point at the cards:
    relocating to the green building cuts building energy, but **early-career commutes over an hour jump from 17% to 39%**, because juniors live further out
    and rely on public transport. Hub & spokes cuts commuting carbon and long commutes to 0%.
 2. **The policy lever (40s):** Untick *Coordinated anchor days*: hub & spokes' mentoring access collapses (73 → 20) and the safeguard appears.

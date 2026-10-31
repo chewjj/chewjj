@@ -95,16 +95,70 @@ function planTableHTML(genes) {
 const icon = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
 function spark(values, label) {
+  if (values.length < 3) return ''; // a single building has nothing to compare
   const max = Math.max(...values) || 1;
   return `<div class="spark" title="${label}">${values.map(v => `<i style="height:${Math.max(4, (v / max) * 100)}%"></i>`).join('')}</div>`;
 }
 
+// ---------- overview scope: which buildings the Overview page covers ----------
+
+let ovScope = 'all';
+const BUILDING_TYPES = [...new Set(BUILDINGS.map(b => b.type))];
+
+function scopeIndices() {
+  if (ovScope === 'all') return BUILDINGS.map((_, i) => i);
+  if (ovScope.startsWith('type:')) return BUILDINGS.map((b, i) => (b.type === ovScope.slice(5) ? i : -1)).filter(i => i >= 0);
+  return [BUILDINGS.findIndex(b => b.id === ovScope)];
+}
+
+function scopeName() {
+  if (ovScope === 'all') return `all ${BUILDINGS.length} buildings`;
+  if (ovScope.startsWith('type:')) return `the ${scopeIndices().length} ${ovScope.slice(5).toLowerCase()} buildings`;
+  return BUILDINGS[scopeIndices()[0]].name;
+}
+
+function scopeStats(plan, idx) {
+  let carbon = 0, capex = 0, kwh = 0, gfa = 0, pw = 0, pp = 0, stranded = 0;
+  idx.forEach(i => {
+    const e = CACHE[i][plan[i]], b = BUILDINGS[i];
+    carbon += e.carbon; capex += e.capex; kwh += e.kwh; gfa += b.gfa;
+    pw += b.weight; pp += e.people * b.weight;
+    if (e.strand !== null && e.strand <= 2030) stranded++;
+  });
+  return { carbon, capex, kwh, gfa, intensity: (carbon * 1000) / gfa, people: pp / pw, stranded };
+}
+
+function renderScopePicker() {
+  const count = t => BUILDINGS.filter(b => b.type === t).length;
+  $('#ovScope').innerHTML = `
+    <optgroup label="Portfolio"><option value="all">all ${BUILDINGS.length} buildings</option></optgroup>
+    <optgroup label="By type">${BUILDING_TYPES.map(t => `<option value="type:${t}">${t.toLowerCase()} buildings (${count(t)})</option>`).join('')}</optgroup>
+    <optgroup label="One building">${BUILDINGS.map(b => `<option value="${b.id}">${b.name} · ${b.area}</option>`).join('')}</optgroup>`;
+  $('#ovScope').value = ovScope;
+}
+
+function setScope(value) {
+  ovScope = value;
+  const idx = scopeIndices();
+  $('#ovScope').value = value;
+  $('#ovAssetCount').textContent = `${idx.length} ASSET${idx.length === 1 ? '' : 'S'} · CLICK A ROW TO OPEN`;
+  $('#ovVerb').textContent = idx.length === 1 ? 'is' : 'are';
+  if (idx.length === 1 && idx[0] !== state.selected) select(idx[0]); // keep the spec sheet and experiences on the same building
+  renderKPIs();
+  renderTable();
+  renderOverview();
+  renderOverviewAlerts();
+}
+
 function renderKPIs() {
-  const s = statsWithSavings(state.plan), b = BASE_STATS;
-  const gfa = BUILDINGS.reduce((sum, x) => sum + x.gfa, 0);
+  const idx = scopeIndices();
+  const s = scopeStats(state.plan, idx), b = scopeStats(BUILDINGS.map(() => 0), idx);
+  s.savings = (b.kwh - s.kwh) * TARIFF;
+  const gfa = s.gfa;
+  const one = idx.length === 1;
   const years = YEARS.filter((y, k) => k % 2 === 0).slice(0, 12);
-  const tonnes = years.map(y => state.plan.reduce((sum, m, i) => sum + (CACHE[i][m].kwh * gridEF(y)) / 1000, 0));
-  const stranded = years.map(y => state.plan.filter((m, i) => CACHE[i][m].strand !== null && CACHE[i][m].strand <= y).length);
+  const tonnes = years.map(y => idx.reduce((sum, i) => sum + (CACHE[i][state.plan[i]].kwh * gridEF(y)) / 1000, 0));
+  const stranded = years.map(y => idx.filter(i => { const st = CACHE[i][state.plan[i]].strand; return st !== null && st <= y; }).length);
   const pct = (now, base) => Math.abs(((now - base) / base) * 100).toFixed(1);
   const card = (ico, tone, label, value, unit, change, changeTone, sparkVals, sparkLabel) => `
     <article class="metric-card">
@@ -115,16 +169,22 @@ function renderKPIs() {
       ${spark(sparkVals, sparkLabel)}
     </article>`;
   $('#kpis').innerHTML = [
-    card('cloud', 'green', 'Portfolio emissions', fmt.int(s.carbon), 'tCO₂e/yr',
+    card('cloud', 'green', one ? 'Building emissions' : 'Emissions', fmt.int(s.carbon), 'tCO₂e/yr',
       s.carbon < b.carbon ? `↓ ${pct(s.carbon, b.carbon)}% vs baseline` : 'Baseline · no measures applied', s.carbon < b.carbon ? 'good' : '', tonnes, 'Projected emissions to 2047'),
     card('bolt', 'cyan', 'Carbon intensity', s.intensity.toFixed(1), 'kgCO₂e/m²',
       s.intensity < b.intensity ? `↓ ${pct(s.intensity, b.intensity)}% vs baseline` : 'Scope 2 · SG grid', s.intensity < b.intensity ? 'good' : '', tonnes.map(t => (t * 1000) / gfa), 'Projected intensity to 2047'),
-    card('alert', 'amber', 'Stranded by 2030', s.stranded, `/ ${BUILDINGS.length} assets`,
-      s.stranded < b.stranded ? `↓ from ${b.stranded} at baseline` : 'CRREM 1.5°C pathway', s.stranded < b.stranded ? 'good' : 'bad', stranded, 'Cumulative stranded assets by year'),
+    one
+      ? (() => {
+        const e = cur(idx[0]), o = BASELINE[idx[0]];
+        return card('alert', 'amber', 'CRREM stranding year', strandLabel(e.strand), '1.5°C pathway',
+          e.strand !== o.strand ? `was ${strandLabel(o.strand)} at baseline` : STATUS_NAME[strandClass(e.strand)], e.strand === null || e.strand > 2032 ? 'good' : 'bad', tonnes.map(t => (t * 1000) / gfa), 'Projected intensity to 2047');
+      })()
+      : card('alert', 'amber', 'Stranded by 2030', s.stranded, `/ ${idx.length} assets`,
+        s.stranded < b.stranded ? `↓ from ${b.stranded} at baseline` : 'CRREM 1.5°C pathway', s.stranded < b.stranded ? 'good' : 'bad', stranded, 'Cumulative stranded assets by year'),
     card('users', 'cyan', 'People Score', s.people.toFixed(1), '/ 100',
-      s.people > b.people + 0.05 ? `↑ ${(s.people - b.people).toFixed(1)} pts vs baseline` : 'Comfort · air · satisfaction', s.people > b.people + 0.05 ? 'good' : '', state.plan.map((m, i) => CACHE[i][m].people).sort((x, y) => x - y), 'People Score by building'),
+      s.people > b.people + 0.05 ? `↑ ${(s.people - b.people).toFixed(1)} pts vs baseline` : 'Comfort · air · satisfaction', s.people > b.people + 0.05 ? 'good' : '', idx.map(i => CACHE[i][state.plan[i]].people).sort((x, y) => x - y), 'People Score by building'),
     card('wallet', '', 'Capex committed', fmt.money(s.capex), '',
-      s.savings > 0 ? `saves ${fmt.money(s.savings)}/yr` : 'No retrofits committed', s.savings > 0 ? 'good' : '', state.plan.map((m, i) => CACHE[i][m].capex + 1).sort((x, y) => x - y), 'Capex by building'),
+      s.savings > 0 ? `saves ${fmt.money(s.savings)}/yr` : 'No retrofits committed', s.savings > 0 ? 'good' : '', idx.map(i => CACHE[i][state.plan[i]].capex + 1).sort((x, y) => x - y), 'Capex by building'),
   ].join('');
 }
 
@@ -241,7 +301,7 @@ function initMap() {
   });
   map.on('mousemove', 'home-dots', ev => {
     const p = ev.features[0].properties;
-    mapPopup.setLngLat(ev.lngLat).setHTML(`<b>${p.name} region</b><br>~${fmt.int(p.heads)} ${ORG.name} people live here<br><span class="muted">aggregated, groups under ${K_MIN} merged</span>`).addTo(map);
+    mapPopup.setLngLat(ev.lngLat).setHTML(`<b>${p.name} region</b><br>~${fmt.int(p.heads)} of your people live here<br><span class="muted">aggregated, groups under ${K_MIN} merged</span>`).addTo(map);
   });
   ['flow-lines', 'home-dots'].forEach(l => map.on('mouseleave', l, () => mapPopup.remove()));
 
@@ -544,8 +604,8 @@ const STATUS_NAME = { crit: 'Stranded', risk: 'At risk', watch: 'Monitor', ok: '
 function renderTable() {
   $('#tableWrap').innerHTML = `<table class="ptable dtable">
     <thead><tr><th>Asset</th><th>Type</th><th>GFA m²</th><th>Carbon <small>kgCO₂e/m²</small></th><th>vs base</th><th>People score</th><th>PMV</th><th>CRREM status</th><th>Measures</th><th>Capex</th><th></th></tr></thead>
-    <tbody>${BUILDINGS.map((b, i) => {
-      const e = cur(i), o = BASELINE[i], cls = strandClass(e.strand), d = (e.intensity / o.intensity - 1) * 100;
+    <tbody>${scopeIndices().map(i => {
+      const b = BUILDINGS[i], e = cur(i), o = BASELINE[i], cls = strandClass(e.strand), d = (e.intensity / o.intensity - 1) * 100;
       return `<tr data-building="${i}" class="${i === state.selected ? 'sel' : ''}">
         <td><strong>${b.name}</strong><span>${b.area} · ${b.id}</span></td><td>${b.type}</td><td>${fmt.int(b.gfa)}</td>
         <td>${e.intensity.toFixed(0)}</td><td class="${d < -0.5 ? 'good-txt' : 'muted'}">${d < -0.5 ? `${d.toFixed(1)}%` : '—'}</td>
@@ -563,10 +623,11 @@ let ovHorizon = 2040;
 
 function renderOverviewPerf() {
   const years = YEARS.filter(y => y <= ovHorizon);
-  const gfa = BUILDINGS.reduce((s, b) => s + b.gfa, 0);
-  const series = plan => years.map(y => plan.reduce((sum, m, i) => sum + CACHE[i][m].kwh * gridEF(y), 0) / gfa);
+  const idx = scopeIndices();
+  const gfa = idx.reduce((s, i) => s + BUILDINGS[i].gfa, 0);
+  const series = plan => years.map(y => idx.reduce((sum, i) => sum + CACHE[i][plan[i]].kwh * gridEF(y), 0) / gfa);
   const actual = series(state.plan), base = series(BUILDINGS.map(() => 0));
-  const target = years.map(y => BUILDINGS.reduce((s, b) => s + pathwayAt(b.type, y) * b.gfa, 0) / gfa);
+  const target = years.map(y => idx.reduce((s, i) => s + pathwayAt(BUILDINGS[i].type, y) * BUILDINGS[i].gfa, 0) / gfa);
   const W = 760, H = 220, L = 46, R = 16, T = 10, B = 26;
   const yMax = Math.ceil(Math.max(...base, ...target) / 20) * 20;
   const x = y => L + ((y - years[0]) / (years.at(-1) - years[0])) * (W - L - R);
@@ -593,19 +654,20 @@ function renderOverviewPerf() {
 }
 
 function renderOverviewHealth() {
-  const s = portfolioStats(state.plan);
-  const classes = state.plan.map((m, i) => strandClass(CACHE[i][m].strand));
+  const idx = scopeIndices();
+  const s = scopeStats(state.plan, idx);
+  const classes = idx.map(i => strandClass(CACHE[i][state.plan[i]].strand));
   const count = c => classes.filter(x => x === c).length;
   const label = s.people >= 85 ? 'Excellent' : s.people >= 75 ? 'Good' : s.people >= 65 ? 'Fair' : 'Needs attention';
   $('#ovHealth').innerHTML = `
     <div class="health-visual">
       <div class="donut" style="--pct:${s.people.toFixed(0)}%"><div><strong>${s.people.toFixed(0)}</strong><span>/ 100</span></div></div>
-      <div class="health-copy"><span>Portfolio People Score</span><strong>${label}</strong>
-        <p>Comfort, air quality and satisfaction, weighted by headcount. ${s.stranded} of ${BUILDINGS.length} assets strand by 2030.</p></div>
+      <div class="health-copy"><span>${idx.length === 1 ? 'Building' : 'Portfolio'} People Score</span><strong>${label}</strong>
+        <p>Comfort, air quality and satisfaction${idx.length === 1 ? '' : ', weighted by headcount'}. ${s.stranded} of ${idx.length} asset${idx.length === 1 ? '' : 's'} strand${idx.length === 1 ? 's' : ''} by 2030.</p></div>
     </div>
     <div class="health-breakdown">
       ${['ok', 'watch', 'risk', 'crit'].map(c => `<div class="score"><div><span><i class="st-${c}"></i>${STATUS_NAME[c]}</span><strong>${count(c)}</strong></div>
-        <div class="score-track"><i class="st-${c}" style="width:${(count(c) / BUILDINGS.length) * 100}%"></i></div></div>`).join('')}
+        <div class="score-track"><i class="st-${c}" style="width:${(count(c) / idx.length) * 100}%"></i></div></div>`).join('')}
     </div>`;
 }
 
@@ -614,7 +676,7 @@ function renderOverviewWork() {
   const rs = [...Studio.state.results].sort((a, b) => a.rank - b.rank), top = rs[0], p = Studio.state.policy;
   $('#ovWork').innerHTML = `<div class="ov-work">
     <div class="ov-work-top"><strong>${top.sc.icon} ${top.sc.name}</strong>
-      <span>recommended · ${p.days} office days${p.anchors ? ' · anchor days' : ''}${p.pods ? ' · mentoring pods' : ''} · ${ORG.name} lease ends ${ORG.leaseExpiry}</span></div>
+      <span>recommended · ${p.days} office days${p.anchors ? ' · anchor days' : ''}${p.pods ? ' · mentoring pods' : ''} · lease ends ${ORG.leaseExpiry}</span></div>
     <div class="ov-row head"><span>#</span><span>Scenario</span><span>Score</span><span>5-yr cost</span><span>tCO₂e/yr</span><span>Juniors &gt;1 h</span></div>
     ${rs.map(r => `<div class="ov-row" data-go="workplace"><span>${r.rank}</span><b>${r.sc.name}</b>
       <div class="bar"><i style="width:${Math.round(r.score * 100)}%"></i></div><span>${fmt.money(r.cost5)}</span><span>${fmt.int(r.annualT)}</span>
@@ -623,9 +685,10 @@ function renderOverviewWork() {
 }
 
 function renderOverviewAlerts() {
-  const feed = $('#feed');
-  $('#ovAlertCount').textContent = `${feed.children.length} ACTIVE`;
-  $('#ovAlerts').innerHTML = [...feed.children].slice(0, 3).map(li => {
+  const idx = scopeIndices();
+  const items = [...$('#feed').children].filter(li => idx.includes(+li.querySelector('[data-building]').dataset.building));
+  $('#ovAlertCount').textContent = `${items.length} ACTIVE`;
+  $('#ovAlerts').innerHTML = (items.length ? '' : '<p class="muted ov-empty">No live alerts for this selection right now.</p>') + items.slice(0, 3).map(li => {
     const sev = li.classList.contains('warn') ? 'warn' : li.classList.contains('good') ? 'good' : 'info';
     const body = li.querySelector('p').textContent;
     return `<div class="ov-alert"><time>${escapeHtml(li.querySelector('.time').textContent.slice(0, 5))}</time><i class="${sev}"></i>
@@ -1063,6 +1126,8 @@ function init() {
   const hour = new Date().getHours();
   $('#greeting').textContent = hour < 12 ? 'Good morning.' : hour < 18 ? 'Good afternoon.' : 'Good evening.';
   $('#searchList').innerHTML = BUILDINGS.map(b => `<option value="${b.name}">${b.area}</option>`).join('');
+  renderScopePicker();
+  $('#ovScope').addEventListener('change', ev => setScope(ev.target.value));
   showPage(location.hash.slice(1) || 'overview');
   bindVizTips($('#page-overview'));
   initMap();
