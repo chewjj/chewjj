@@ -4,7 +4,7 @@ const SAMPLE_REPORTS = {
   a: {
     name: 'Harbourline_Sustainability_Report_FY2021.txt',
     text: `HARBOURLINE PROPERTY TRUST - SUSTAINABILITY REPORT FY2021
-[Fictional sample document created for the Equilibria hackathon demo. Not real company data.]
+[Fictional sample document created for the Footfall hackathon demo. Not real company data.]
 
 1. ABOUT THIS REPORT
 This report covers the financial year 1 January to 31 December 2021. It has been prepared with reference to the GRI Standards 2016 and the recommendations of the Task Force on Climate-related Financial Disclosures (TCFD).
@@ -56,7 +56,7 @@ We have identified flood risk at 2 coastal assets and are assessing physical cli
   b: {
     name: 'Harbourline_Sustainability_Report_FY2025.txt',
     text: `HARBOURLINE PROPERTY TRUST - SUSTAINABILITY REPORT FY2025
-[Fictional sample document created for the Equilibria hackathon demo. Not real company data.]
+[Fictional sample document created for the Footfall hackathon demo. Not real company data.]
 
 1. ABOUT THIS REPORT
 This report covers the financial year 1 January to 31 December 2025. It is prepared in accordance with the GRI Standards 2021 and IFRS S2 Climate-related Disclosures (ISSB), which replaces our previous TCFD reporting. We participated in GRESB for the first time and received a 4-star rating.

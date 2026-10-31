@@ -256,7 +256,7 @@ const Story = (() => {
           <div><span>Running cost</span><b>−${fmt.money(A.energyCost + A.carbonCost - B.energyCost - B.carbonCost)}</b><em>per year</em></div>
           <div><span>Value protected ${info('brown')}</span><b>${fmt.money(A.valueLoss - B.valueLoss)}</b><em>brown discount avoided</em></div>
         </div>
-        <p class="muted">Comfort, air quality, mould, energy and CRREM figures come from the Equilibria models (synthetic portfolio). The S$${CARBON_PRICE}/t carbon price,
+        <p class="muted">Comfort, air quality, mould, energy and CRREM figures come from the Footfall models (synthetic portfolio). The S$${CARBON_PRICE}/t carbon price,
           brown discount (up to ${Math.round(BROWN_DISCOUNT * 100)}%, scaled by how far the asset sits above its pathway), asset values and the daily CO₂ profile are illustrative assumptions.</p>
         <div class="chat-actions"><button class="btn" id="storyApply" ${state.plan[i] === mask ? 'disabled' : ''}>Choose Future B: apply the package</button></div>
       </section>`, true);

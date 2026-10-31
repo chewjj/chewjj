@@ -1,6 +1,6 @@
-# Equilibria: Right spaces, right places, lower carbon
+# Footfall: Right spaces, right places, lower carbon
 
-Workforce planning, employee experience and real estate decisions are usually made separately. Equilibria connects them:
+Workforce planning, employee experience and real estate decisions are usually made separately. Footfall connects them:
 an AI-assisted scenario tool that compares **renewing, right-sizing, consolidating, relocating or going hub-and-spoke**
 on cost, carbon (building energy **and** commuting **and** fit-out), employee experience, and impacts on each career
 stage, with particular care for early-career employees. Underneath, a building layer models energy, comfort and

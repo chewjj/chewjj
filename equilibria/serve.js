@@ -35,7 +35,7 @@ http.createServer((req, res) => {
   const ips = Object.values(os.networkInterfaces()).flat()
     .filter(n => n && n.family === 'IPv4' && !n.internal)
     .map(n => n.address);
-  console.log('Equilibria is running.');
+  console.log('Footfall is running.');
   console.log(`  This laptop: http://localhost:${PORT}`);
   ips.forEach(ip => console.log(`  Network:     http://${ip}:${PORT}   <- open the dashboard here so the QR code works for phones`));
   console.log('Press Ctrl+C to stop.');

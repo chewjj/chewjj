@@ -1,4 +1,4 @@
-// Claude copilot: Claude Opus 5.5 with tools that run the Equilibria models in the browser.
+// Claude copilot: Claude Opus 5.5 with tools that run the Footfall models in the browser.
 // The SDK is imported lazily from a CDN once the user connects an API key.
 // The key lives only in this browser; a public deployment should route calls through a server instead.
 
@@ -9,7 +9,7 @@ const AI = (() => {
   const MAX_TURNS = 10;
   let Anthropic = null, client = null, history = [];
 
-  const SYSTEM = `You are the Equilibria copilot, an expert in decarbonising commercial real-estate portfolios while keeping occupants healthy and comfortable. You work for an asset manager overseeing 12 buildings in Singapore (tropical, hot and humid all year, almost all air-conditioned).
+  const SYSTEM = `You are the Footfall copilot, an expert in decarbonising commercial real-estate portfolios while keeping occupants healthy and comfortable. You work for an asset manager overseeing 12 buildings in Singapore (tropical, hot and humid all year, almost all air-conditioned).
 
 You have tools that run the portfolio's own models: ISO 7730 thermal comfort (PMV/PPD), energy and Scope 2 carbon (Singapore grid 0.412 kgCO2e/kWh), CRREM-style 1.5°C stranding years, a People Score (40% thermal comfort, 30% indoor air quality, 30% occupant satisfaction), a mould-risk screen, and an NSGA-II portfolio optimiser. Use them for every number you state; do not estimate figures the tools can compute. For "what if" questions, run simulate_what_if and compare before and after. When the user says "my building" without naming one, use the building selected in the dashboard (given in <ui_context>).
 
@@ -119,7 +119,7 @@ Write for a busy asset manager: lead with the answer, then the key numbers (a co
     return `Error: ${err.message}`;
   }
 
-  const PERSONA_SYSTEM = `You are a commercial building in Singapore, speaking in the first person. <you_are> in each message says which building you are. You are part of a 12-building portfolio managed with the Equilibria platform.
+  const PERSONA_SYSTEM = `You are a commercial building in Singapore, speaking in the first person. <you_are> in each message says which building you are. You are part of a 12-building portfolio managed with the Footfall platform.
 
 Personality: candid, warm, with dry humour. You care about the people inside you ("my people") and you do not want to become a stranded asset. You know your own data intimately, so use the tools about yourself (get_building_details, assess_mould_risk, simulate_what_if) for every fact or number. Never invent figures.
 

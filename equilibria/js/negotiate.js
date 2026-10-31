@@ -143,7 +143,7 @@ const Negotiation = (() => {
     for (const role of ORDER) {
       const el = turnBubble(role, TYPING);
       let md = '';
-      const prompt = `Building facts from the Equilibria models:\n${f}\n\nNegotiation so far:\n${transcript.map(t => `${ROLES[t.role].name}: ${t.text}`).join('\n\n') || '(you open the negotiation)'}\n\nYour turn as the ${ROLES[role].name}. Reply in under 70 words, in the first person, using concrete numbers from the facts only. ${transcript.length >= 3 ? 'Converge towards a final deal.' : 'Make a concrete proposal or counter-proposal.'}`;
+      const prompt = `Building facts from the Footfall models:\n${f}\n\nNegotiation so far:\n${transcript.map(t => `${ROLES[t.role].name}: ${t.text}`).join('\n\n') || '(you open the negotiation)'}\n\nYour turn as the ${ROLES[role].name}. Reply in under 70 words, in the first person, using concrete numbers from the facts only. ${transcript.length >= 3 ? 'Converge towards a final deal.' : 'Make a concrete proposal or counter-proposal.'}`;
       const text = await AI.agentTurn(ROLES[role].system, prompt, d => { md += d; el.innerHTML = renderMarkdown(md); });
       transcript.push({ role, text });
     }
@@ -157,7 +157,7 @@ const Negotiation = (() => {
     const n = dealNumbers(i, bestPackage(i));
     const live = AI.enabled();
     openXp('03 / Green-lease negotiation', `
-      <p class="lede">Three agents negotiate a retrofit-and-comfort deal for <b>${n.b.name}</b>, using numbers from the Equilibria models.
+      <p class="lede">Three agents negotiate a retrofit-and-comfort deal for <b>${n.b.name}</b>, using numbers from the Footfall models.
         ${live ? 'Each agent is a live Claude Opus 5.5 instance.' : 'Offline mode: a scripted negotiation filled with the model numbers. Connect Claude in the Copilot tab for live agents.'}</p>
       <div class="nego-roles">${Object.entries(ROLES).map(([k, r]) => `<div class="${k}"><i>${r.icon}</i><b>${r.name}</b><p>${r.goal}</p></div>`).join('')}</div>
       <div class="nego-log" id="negoLog"></div>

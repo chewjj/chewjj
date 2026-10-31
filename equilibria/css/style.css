@@ -408,7 +408,7 @@ i.st-crit { background: var(--red); } i.st-risk { background: var(--amber); } i.
 .chat { height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 4px 4px 0; }
 .msg { max-width: 85%; padding: 10px 14px; border: 1px solid var(--line); background: var(--panel-2); }
 .msg::before { display: block; font-size: 9px; letter-spacing: .12em; margin-bottom: 4px; color: var(--dim); }
-.msg.bot::before { content: '> EQUILIBRIA'; color: var(--accent); }
+.msg.bot::before { content: '> FOOTFALL'; color: var(--accent); }
 .msg.user { align-self: flex-end; border-color: rgba(0, 229, 255, .35); }
 .msg.user::before { content: '> YOU'; }
 .msg p { margin: 0 0 6px; }
@@ -545,6 +545,9 @@ i.st-crit { background: var(--red); } i.st-risk { background: var(--amber); } i.
 .report { padding: 26px 32px; overflow-y: auto; }
 .report h1 { font-size: 28px; }
 .report h2 { font-size: 12px; font-family: var(--mono); font-weight: 500; text-transform: uppercase; letter-spacing: .12em; margin: 24px 0 8px; color: var(--accent); }
+.data-needs h2 small { font-size: 11px; color: var(--dim); text-transform: none; letter-spacing: 0; margin-left: 6px; }
+.data-needs > p { font-size: 12px; margin: 4px 0 10px; }
+.data-needs td:first-child { width: 32%; }
 .method li { margin: 4px 0; font-size: 12px; color: var(--muted); }
 .method b { color: var(--ink); font-weight: 500; }
 
@@ -569,7 +572,7 @@ i.st-crit { background: var(--red); } i.st-risk { background: var(--amber); } i.
   .shell { padding-left: 0; padding-bottom: 58px; }
   .topbar { height: 58px; padding: 0 16px; }
   .crumb strong, .theme-btn span { display: none; }
-  .search-input { position: absolute; left: 16px; right: 112px; width: auto; }
+  .search-input { position: absolute; left: 16px; right: 156px; width: auto; }
   .page { padding: 24px 16px; }
   .updated { display: none; }
   .ov-row { grid-template-columns: 24px 1fr 70px 60px; }

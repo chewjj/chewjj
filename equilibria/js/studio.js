@@ -302,7 +302,7 @@ ${guards.join('\n') || '- No major early-career risks flagged under this policy.
 - Pilot the anchor-day pattern for one quarter before signing.
 - Check lease break options and landlord retrofit commitments (green-lease clauses).
 
-_Generated offline from the Equilibria models with synthetic, aggregated data. All figures are estimates; see Assumptions._`;
+_Generated offline from the Footfall models with synthetic, aggregated data. All figures are estimates; see Assumptions._`;
   }
 
   async function writeMemo() {
