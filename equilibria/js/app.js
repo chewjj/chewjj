@@ -68,8 +68,8 @@ function planSummaryHTML(genes) {
   return `<div class="plan-kpis">
     <div><span>Carbon cut</span><b>${carbonCut(s.carbon).toFixed(1)}%</b><em>−${fmt.int(b.carbon - s.carbon)} tCO₂e/yr</em></div>
     <div><span>People Score</span><b>${s.people.toFixed(1)}</b><em>${deltaPts(s.people, b.people) || 'unchanged'}</em></div>
-    <div><span>Capex</span><b>${fmt.money(s.capex)}</b><em>${s.savings > 0 ? `payback ${(s.capex / s.savings).toFixed(1)} yrs` : '–'}</em></div>
-    <div><span>Stranded by 2030</span><b>${s.stranded} / ${BUILDINGS.length}</b><em>from ${b.stranded}</em></div>
+    <div><span>Capex ${info('capex')}</span><b>${fmt.money(s.capex)}</b><em>${s.savings > 0 ? `payback ${(s.capex / s.savings).toFixed(1)} yrs` : '–'}</em></div>
+    <div><span>Stranded by 2030 ${info('stranded')}</span><b>${s.stranded} / ${BUILDINGS.length}</b><em>from ${b.stranded}</em></div>
   </div>`;
 }
 
@@ -107,6 +107,43 @@ const GLOSSARY = {
   eui: ['Energy use intensity', 'Yearly energy use per square metre of floor area (kWh/m²).'],
   mentoring: ['Mentoring access index', 'The chance a senior colleague is in the same place on an early-career employee\'s office day, scaled by in-person time. Higher is better.'],
   belonging: ['Belonging index', 'How often the whole organisation is in one place, local amenities, and enough shared office days. Higher is better.'],
+  emissions: ['Operational emissions', 'Yearly carbon from the electricity the buildings use (Scope 2): energy × Singapore grid factor of 0.412 kgCO₂e/kWh. No offsets are counted.'],
+  capex: ['Capex', 'Capital expenditure: the upfront cost of retrofit measures, paid once.'],
+  payback: ['Payback', 'Simple payback: capex ÷ yearly energy savings. The number of years until the investment pays for itself.'],
+  gfa: ['GFA', 'Gross floor area: the total floor area of the building, in m².'],
+  setpoint: ['Setpoint', 'The temperature the air-con aims for. Many Singapore offices over-cool at 22–23°C; 25.5°C with gentle fans saves energy and is comfortable for most people.'],
+  co2: ['Indoor CO₂', 'A measure of how fresh the air is (ppm). Above about 1,000 ppm people feel drowsy and think less clearly; demand-controlled ventilation keeps it lower.'],
+  pulse: ['Occupant pulse', 'Share of occupants who say they are satisfied in quick, anonymous QR surveys.'],
+  whatif: ['Retrofit what-if', 'Toggle measures to see their effect on this building\'s energy, carbon, comfort and cost instantly. Changes become part of the portfolio plan.'],
+  officedays: ['Office days per week', 'The hybrid policy. It drives desk demand and space, commuting carbon and how much in-person time people get.'],
+  anchors: ['Coordinated anchor days', 'Teams come in on the same 2 days, so early-career staff and their mentors overlap. It raises mentoring access but needs more desks on those days.'],
+  pods: ['Mentoring & learning pods', 'Small spaces near teams for coaching, pairing and onboarding. Adds about 5% floor area and improves mentoring access.'],
+  weights: ['Leadership weights', 'How much each factor counts when ranking scenarios. Only the proportions matter: 50 and 25 means the first counts twice as much.'],
+  cost5: ['5-year cost', 'Rent and energy over the 5-year lease term, plus one-off fit-out and moving costs.'],
+  desk: ['Desk use on peak days', 'Share of desks occupied on the busiest day. Well below 70% means paying for empty space; near 100% means crowding.'],
+  buildingenergy: ['Building energy', 'Carbon from the electricity used by the floors you occupy, at that building\'s energy intensity.'],
+  commuting: ['Commuting emissions', 'Staff trips to the office: distance × office days × mode. Public transport 0.04, car 0.17 kgCO₂e per passenger-km.'],
+  fitout: ['Fit-out materials', 'Embodied carbon from making and installing new partitions, floors and furniture, spread over the lease term.'],
+  carbonsources: ['Carbon by source', 'Building energy (electricity for your floors), commuting (staff trips) and fit-out materials (embodied carbon of new interiors, spread over the lease).'],
+  longcommute: ['Commutes over 60 minutes', 'Share of people whose one-way trip takes more than an hour. Long commutes weigh on wellbeing and retention.'],
+  juniors: ['Juniors over 1 hour', 'Share of early-career employees (0–3 years in work) whose one-way commute would take more than an hour.'],
+  avgcommute: ['Average commute', 'Average one-way door-to-door time across the workforce, by their usual mode, if everyone worked here.'],
+  pareto: ['Pareto frontier', 'The set of plans where you cannot cut more carbon without lowering the People Score, or the other way round. Every plan off the line is beaten by one on it.'],
+  nsga: ['NSGA-II', 'A genetic algorithm that evolves many candidate plans at once and keeps the best carbon-versus-people trade-offs each generation.'],
+  budget: ['Capex budget', 'The most the retrofit plan may spend upfront across all buildings.'],
+  priority: ['Priority', 'Chooses a plan on the Pareto frontier: towards Carbon favours bigger carbon cuts, towards People favours occupant wellbeing.'],
+  insights: ['Insights generated', 'Alerts and suggestions created from the live sensor stream and occupant votes.'],
+  autoresolved: ['Auto-resolved', 'Alerts the system handled by itself, for example boosting ventilation only in the zones that are occupied.'],
+  diff: ['ESG report diff', 'Compares two sustainability reports to show what really changed, including accounting or boundary changes that can flatter results.'],
+  redflags: ['Red flags', 'Possible greenwashing or weak disclosure: reductions that come from accounting changes, reliance on offsets or certificates, missed targets, or metrics quietly dropped.'],
+  notcomparable: ['Not comparable', 'The method or boundary changed between the two reports, so the two numbers cannot be compared directly.'],
+  rebaselined: ['Rebaselined', 'The target now starts from a different base year, which can reset or flatter the progress reported.'],
+  scope1: ['Scope 1', 'Direct emissions from fuel burned on site, such as gas boilers or generators.'],
+  scope2: ['Scope 2', 'Emissions from purchased electricity. Location-based uses the grid average; market-based counts renewable certificates and green tariffs, so it can fall without using less energy.'],
+  scope3: ['Scope 3', 'Value-chain emissions, such as purchased goods, and tenants\' energy use in leased space.'],
+  greenlease: ['Green lease', 'A lease where landlord and tenant share responsibility for energy, data and retrofits, for example by sharing the savings.'],
+  comfortflex: ['Comfort flexibility', 'Carbon saved because occupants accept a slightly wider comfort range, such as 25.5°C with a fan.'],
+  brown: ['Brown discount', 'A lower valuation for buildings above their carbon pathway. Illustrative here: up to 12%, scaled by how far above the pathway the building is.'],
 };
 
 const info = term => `<button type="button" class="info" data-term="${term}" aria-label="What is ${GLOSSARY[term][0]}?">?</button>`;
@@ -222,7 +259,7 @@ function renderKPIs() {
       ${spark(sparkVals, sparkLabel)}
     </article>`;
   $('#kpis').innerHTML = [
-    card('cloud', 'green', one ? 'Building emissions' : 'Emissions', fmt.int(s.carbon), 'tCO₂e/yr',
+    card('cloud', 'green', `${one ? 'Building emissions' : 'Emissions'} ${info('emissions')}`, fmt.int(s.carbon), 'tCO₂e/yr',
       s.carbon < b.carbon ? `↓ ${pct(s.carbon, b.carbon)}% vs baseline` : 'Baseline · no measures applied', s.carbon < b.carbon ? 'good' : '', tonnes, 'Projected emissions to 2047'),
     card('bolt', 'cyan', `Carbon intensity ${info('intensity')}`, s.intensity.toFixed(1), 'kgCO₂e/m²',
       s.intensity < b.intensity ? `↓ ${pct(s.intensity, b.intensity)}% vs baseline` : 'Scope 2 · SG grid', s.intensity < b.intensity ? 'good' : '', tonnes.map(t => (t * 1000) / gfa), 'Projected intensity to 2047'),
@@ -236,7 +273,7 @@ function renderKPIs() {
         s.stranded < b.stranded ? `↓ from ${b.stranded} at baseline` : 'CRREM 1.5°C pathway', s.stranded < b.stranded ? 'good' : 'bad', stranded, 'Cumulative stranded assets by year'),
     card('users', 'cyan', `People Score ${info('people')}`, s.people.toFixed(1), '/ 100',
       s.people > b.people + 0.05 ? `↑ ${(s.people - b.people).toFixed(1)} pts vs baseline` : 'Comfort · air · satisfaction', s.people > b.people + 0.05 ? 'good' : '', idx.map(i => CACHE[i][state.plan[i]].people).sort((x, y) => x - y), 'People Score by building'),
-    card('wallet', '', 'Capex committed', fmt.money(s.capex), '',
+    card('wallet', '', `Capex committed ${info('capex')}`, fmt.money(s.capex), '',
       s.savings > 0 ? `saves ${fmt.money(s.savings)}/yr` : 'No retrofits committed', s.savings > 0 ? 'good' : '', idx.map(i => CACHE[i][state.plan[i]].capex + 1).sort((x, y) => x - y), 'Capex by building'),
   ].join('');
 }
@@ -473,9 +510,9 @@ function renderDetail() {
     <dl class="spec">
       <div><dt>Type</dt><dd>${b.type}</dd></div>
       <div><dt>Built</dt><dd>${b.built}</dd></div>
-      <div><dt>GFA</dt><dd>${fmt.int(b.gfa)} m²</dd></div>
+      <div><dt>GFA ${info('gfa')}</dt><dd>${fmt.int(b.gfa)} m²</dd></div>
       <div><dt>EUI ${info('eui')}</dt><dd>${e.eui.toFixed(0)} kWh/m²</dd></div>
-      <div><dt>Setpoint</dt><dd>${e.ta}°C</dd></div>
+      <div><dt>Setpoint ${info('setpoint')}</dt><dd>${e.ta}°C</dd></div>
       <div><dt>Occupancy</dt><dd>${fmt.pct(e.occ)}</dd></div>
     </dl>
     <div class="metrics">
@@ -494,16 +531,16 @@ function renderDetail() {
         <div class="pmv-ticks"><span>Cold</span><span>Cool</span><span>Neutral</span><span>Warm</span><span>Hot</span></div>
         <p class="tiny">${e.ta}°C · air ${e.vel} m/s · ${b.rh}% RH · <b>${e.ppd.toFixed(0)}%</b> predicted dissatisfied</p>
       </div>
-      ${mini('CO₂ (live)', '<span id="liveCo2">–</span>', 'ppm', e.iaq)}
+      ${mini(`CO₂ (live) ${info('co2')}`, '<span id="liveCo2">–</span>', 'ppm', e.iaq)}
       ${mini('Occupancy (live)', '<span id="liveOcc">–</span>', '%', null)}
-      ${mini('Occupant pulse', e.pulse.toFixed(0), '% satisfied', e.pulse)}
+      ${mini(`Occupant pulse ${info('pulse')}`, e.pulse.toFixed(0), '% satisfied', e.pulse)}
     </div>
-    <div class="sub-head"><i>02.3</i>Retrofit what-if <span class="hint">toggle to simulate</span></div>
+    <div class="sub-head"><i>02.3</i>Retrofit what-if ${info('whatif')} <span class="hint">toggle to simulate</span></div>
     <div class="actions">${ACTIONS.map((a, k) => actionChip(b, e, a, k)).join('')}</div>
     <div class="whatif">
       <div><span>Capex</span><b>${fmt.money(e.capex)}</b></div>
       <div><span>Energy savings</span><b>${fmt.money(savings)}/yr</b></div>
-      <div><span>Payback</span><b>${savings > 0 ? (e.capex / savings).toFixed(1) + ' yrs' : '–'}</b></div>
+      <div><span>Payback ${info('payback')}</span><b>${savings > 0 ? (e.capex / savings).toFixed(1) + ' yrs' : '–'}</b></div>
     </div>`;
   drawCrrem(b, base, e);
   updateLiveFields();
@@ -730,7 +767,7 @@ function renderOverviewWork() {
   $('#ovWork').innerHTML = `<div class="ov-work">
     <div class="ov-work-top"><strong>${top.sc.icon} ${top.sc.name}</strong>
       <span>recommended · ${p.days} office days${p.anchors ? ' · anchor days' : ''}${p.pods ? ' · mentoring pods' : ''} · lease ends ${ORG.leaseExpiry}</span></div>
-    <div class="ov-row head"><span>#</span><span>Scenario</span><span>Score</span><span>5-yr cost</span><span>tCO₂e/yr</span><span>Juniors &gt;1 h</span></div>
+    <div class="ov-row head"><span>#</span><span>Scenario</span><span>Score</span><span>5-yr cost</span><span>tCO₂e/yr</span><span>Juniors &gt;1 h ${info('juniors')}</span></div>
     ${rs.map(r => `<div class="ov-row" data-go="workplace"><span>${r.rank}</span><b>${r.sc.name}</b>
       <div class="bar"><i style="width:${Math.round(r.score * 100)}%"></i></div><span>${fmt.money(r.cost5)}</span><span>${fmt.int(r.annualT)}</span>
       <span>${Math.round(r.cohorts.early.longShare * 100)}%</span></div>`).join('')}
@@ -1071,8 +1108,8 @@ function makeAlert() {
   $('#liveStats').innerHTML = `
     <div><b>${fmt.int(1248 + (alertCount % 5))}</b><span>sensors online</span></div>
     <div><b>${fmt.int(312 + alertCount * 2)}</b><span>occupant votes today</span></div>
-    <div><b>${alertCount}</b><span>insights generated</span></div>
-    <div><b>${autoResolved}</b><span>auto-resolved</span></div>`;
+    <div><b>${alertCount}</b><span>insights generated ${info('insights')}</span></div>
+    <div><b>${autoResolved}</b><span>auto-resolved ${info('autoresolved')}</span></div>`;
   if (currentPage !== 'live') $('#liveBadge').hidden = false;
   renderOverviewAlerts();
 }

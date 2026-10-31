@@ -136,13 +136,13 @@
               </div>
               <div class="st-setup-col">
                 <div class="st-col-title"><i>A</i>Hybrid policy</div>
-                <label>Office days per week <b id="stDaysVal">3 days</b></label>
+                <label>Office days per week <button type="button" class="info" data-term="officedays" aria-label="What is office days per week?">?</button> <b id="stDaysVal">3 days</b></label>
                 <input type="range" id="stDays" min="1" max="5" step="1" value="3">
-                <label class="st-check"><input type="checkbox" id="stAnchors" checked> Coordinated anchor days <span class="hint">teams in on the same 2 days</span></label>
-                <label class="st-check"><input type="checkbox" id="stPods" checked> Mentoring &amp; learning pods <span class="hint">+5% space</span></label>
+                <label class="st-check"><input type="checkbox" id="stAnchors" checked> Coordinated anchor days <button type="button" class="info" data-term="anchors" aria-label="What is coordinated anchor days?">?</button><span class="hint">teams in on the same 2 days</span></label>
+                <label class="st-check"><input type="checkbox" id="stPods" checked> Mentoring &amp; learning pods <button type="button" class="info" data-term="pods" aria-label="What is mentoring and learning pods?">?</button><span class="hint">+5% space</span></label>
               </div>
               <div class="st-setup-col">
-                <div class="st-col-title"><i>B</i>Leadership weights <span class="hint">0–100</span></div>
+                <div class="st-col-title"><i>B</i>Leadership weights <button type="button" class="info" data-term="weights" aria-label="What is leadership weights?">?</button> <span class="hint">0–100</span></div>
                 <div class="st-weights">
                   <div class="st-weight"><label>Cost <b>25</b></label><input type="range" data-weight="cost" min="0" max="100" value="25"></div>
                   <div class="st-weight"><label>Carbon <b>25</b></label><input type="range" data-weight="carbon" min="0" max="100" value="25"></div>
@@ -183,7 +183,7 @@
 
           <div class="st-row st-row-charts">
             <article class="panel">
-              <div class="panel-head"><div><span>07</span><h2>Carbon by source</h2></div><span class="muted st-hint">tCO₂e per year</span></div>
+              <div class="panel-head"><div><span>07</span><h2>Carbon by source</h2><button type="button" class="info" data-term="carbonsources" aria-label="What is carbon by source?">?</button></div><span class="muted st-hint">tCO₂e per year</span></div>
               <div class="panel-body" id="stCarbon"></div>
             </article>
             <article class="panel">
@@ -245,14 +245,14 @@
           </div>
         </div>
         <section class="card">
-          <div class="sec-head"><span class="sec-no">01</span><span class="sec-title">Pareto frontier</span><span class="sec-meta">CAPEX-CONSTRAINED · 12 ASSETS</span></div>
+          <div class="sec-head"><span class="sec-no">01</span><span class="sec-title">Pareto frontier</span><button type="button" class="info" data-term="pareto" aria-label="What is the Pareto frontier?">?</button><span class="sec-meta">CAPEX-CONSTRAINED · 12 ASSETS</span></div>
           <div class="opt-grid">
             <div class="opt-controls">
-              <p class="lede">A <b>NSGA-II genetic algorithm</b> evolves thousands of retrofit plans across every asset and returns the
+              <p class="lede">A <b>NSGA-II genetic algorithm</b> <button type="button" class="info" data-term="nsga" aria-label="What is NSGA-II?">?</button> evolves thousands of retrofit plans across every asset and returns the
                 <b>Pareto frontier</b>: the best achievable trade-offs between carbon and occupant wellbeing.</p>
-              <label>Capex budget <b id="budgetVal">S$15M</b></label>
+              <label>Capex budget <button type="button" class="info" data-term="budget" aria-label="What is the capex budget?">?</button> <b id="budgetVal">S$15M</b></label>
               <input type="range" id="budget" min="1" max="60" step="1" value="15">
-              <label>Priority <b id="priorityVal">Balanced</b></label>
+              <label>Priority <button type="button" class="info" data-term="priority" aria-label="What is priority?">?</button> <b id="priorityVal">Balanced</b></label>
               <input type="range" id="priority" min="0" max="100" value="50">
               <div class="range-ends"><span>Carbon</span><span>People</span></div>
               <button class="btn wide" id="btnRun">▶ Run optimiser</button>
@@ -321,7 +321,7 @@
           <div class="intro-actions"><button class="btn sm" id="btnReport">Generate ESG report</button></div>
         </div>
         <section class="card">
-          <div class="sec-head"><span class="sec-no">01</span><span class="sec-title">ESG report diff</span><span class="sec-meta">OFFLINE RULES · OPTIONAL CLAUDE</span></div>
+          <div class="sec-head"><span class="sec-no">01</span><span class="sec-title">ESG report diff</span><button type="button" class="info" data-term="diff" aria-label="What is the ESG report diff?">?</button><span class="sec-meta">OFFLINE RULES · OPTIONAL CLAUDE</span></div>
           <p class="lede">Upload two ESG or sustainability reports from the same organisation, such as FY2021 and FY2025. The <b>offline engine</b> extracts
             the metrics, targets, frameworks and disclosures from both in your browser (no API key needed) and returns a structured diff: KPI changes,
             target changes, methodology and boundary shifts, and possible greenwashing.</p>

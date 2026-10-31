@@ -9,7 +9,8 @@ const ReportDiff = (() => {
   let lastResult = null, running = false;
 
   const status = html => { $('#diffStatus').innerHTML = html; };
-  const badge = (cls, text) => `<span class="dbadge ${cls}">${escapeHtml(text)}</span>`;
+  const BADGE_TERMS = { 'not comparable': 'notcomparable', rebaselined: 'rebaselined' };
+  const badge = (cls, text) => `<span class="dbadge ${cls}"${BADGE_TERMS[text] ? ` data-term="${BADGE_TERMS[text]}"` : ''}>${escapeHtml(text)}</span>`;
 
   function readFile(file) {
     return new Promise((resolve, reject) => {
@@ -121,7 +122,7 @@ const ReportDiff = (() => {
         <div><b class="bad-txt">${r.red_flags.length}</b><span>red flags</span></div>
       </div>
 
-      <div class="sub-head"><i>01</i>Red flags</div>
+      <div class="sub-head"><i>01</i>Red flags ${info('redflags')}</div>
       ${flags.length ? `<ul class="flags">${flags.map(f => `<li>${badge(`s-${f.severity}`, f.severity)}<div><b>${escapeHtml(f.issue)}</b><p>${escapeHtml(f.evidence)}</p></div></li>`).join('')}</ul>` : '<p class="muted">None found.</p>'}
 
       <div class="sub-head"><i>02</i>KPI changes</div>
@@ -129,7 +130,7 @@ const ReportDiff = (() => {
         <tr><th>Metric</th><th>Report A</th><th>Report B</th><th>Δ</th><th>Status</th><th>Note</th></tr>
         ${kpiCats.map(cat => `<tr class="cat"><td colspan="6">${escapeHtml(cat)}</td></tr>
           ${r.kpis.filter(k => k.category === cat).map(k => `<tr>
-            <td><b>${escapeHtml(k.name)}</b></td>
+            <td><b>${escapeHtml(k.name)}</b>${(m => (m ? ` ${info(`scope${m[1]}`)}` : ''))(/scope\s*([123])\b/i.exec(k.name))}</td>
             <td title="${escapeHtml(k.as_reported_a)}">${fmtVal(k.value_a, k.unit)}</td>
             <td title="${escapeHtml(k.as_reported_b)}">${fmtVal(k.value_b, k.unit)}</td>
             <td>${delta(k)}</td>

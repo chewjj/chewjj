@@ -139,7 +139,7 @@ const Audience = (() => {
       <h4>Accept 25.5°C + a quiet fan to cut ${fmt.int(tempSaving())} tCO₂/yr?</h4>
       <div class="aud-row"><span>Yes</span>${bar(t.yes, t.yes + t.no, 'yes')}<b>${t.yes}</b></div>
       <div class="aud-row"><span>No</span>${bar(t.no, t.yes + t.no, 'no')}<b>${t.no}</b></div>
-      <p class="aud-insight">${t.yes + t.no ? `<b>${Math.round(accepted * 100)}%</b> accept the trade, so this room has unlocked about <b>${fmt.int(tempSaving() * accepted)} tCO₂/yr</b> of comfort flexibility, carbon that only exists because people said yes.` : 'Waiting for votes…'}</p>
+      <p class="aud-insight">${t.yes + t.no ? `<b>${Math.round(accepted * 100)}%</b> accept the trade, so this room has unlocked about <b>${fmt.int(tempSaving() * accepted)} tCO₂/yr</b> of <span data-term="comfortflex" class="term-word">comfort flexibility</span>, carbon that only exists because people said yes.` : 'Waiting for votes…'}</p>
       <div class="chat-actions">
         <button class="btn" id="audApply" ${applied || t.yes <= t.no || t.yes < 2 ? 'disabled' : ''}>${applied ? '✓ Audience decision applied' : '⚡ Apply the audience\'s decision'}</button>
         <button class="btn ghost sm" id="audSim">+ Simulate 10 judges</button>

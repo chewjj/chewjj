@@ -971,3 +971,9 @@ i.st-crit { background: var(--red); } i.st-risk { background: var(--amber); } i.
 }
 .term-tip[hidden] { display: none; }
 .term-tip b { display: block; margin-bottom: 3px; font: 500 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+
+/* tooltips beside labels that use flex layouts */
+.st-setup label .info, .opt-controls label .info { margin-right: auto; margin-left: 6px; }
+.panel-head h2 + .info, .sec-title + .info { margin-left: 2px; }
+.deal-head .info { margin-left: -4px; }
+.term-word { border-bottom: 1px dotted currentColor; }

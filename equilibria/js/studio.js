@@ -82,8 +82,8 @@ const Studio = (() => {
       <div class="st-sites-map">${siteMap()}</div>
       <div class="st-sites-list">
         <div class="table-wrap"><table class="ptable dtable st-site-table">
-          <thead><tr><th>Current</th><th>Candidate</th><th>Building</th><th>Rent <small>S$/m²/mo</small></th><th>Energy <small>kWh/m²</small></th>
-            <th>People <small>score</small> ${info('people')}</th><th>CRREM ${info('crrem')}</th><th>Avg commute <small>if all moved here</small></th><th>Juniors &gt;1 h <small>if all moved here</small></th></tr></thead>
+          <thead><tr><th>Current</th><th>Candidate</th><th>Building</th><th>Rent <small>S$/m²/mo</small></th><th>Energy <small>kWh/m²</small> ${info('eui')}</th>
+            <th>People <small>score</small> ${info('people')}</th><th>CRREM ${info('crrem')}</th><th>Avg commute <small>if all moved here</small> ${info('avgcommute')}</th><th>Juniors &gt;1 h <small>if all moved here</small> ${info('juniors')}</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
         <div class="st-sites-foot">
           <label class="st-check"><input type="checkbox" id="stHub" ${st.selection.hub ? 'checked' : ''} ${pool < 3 ? 'disabled' : ''}>
@@ -150,7 +150,11 @@ const Studio = (() => {
     ]],
   ];
 
-  const TERMS = { 'Mentoring access index': 'mentoring', 'Belonging index': 'belonging', 'Building comfort (People Score)': 'people' };
+  const TERMS = {
+    'Mentoring access index': 'mentoring', 'Belonging index': 'belonging', 'Building comfort (People Score)': 'people',
+    '5-year cost (rent, energy, fit-out, move)': 'cost5', 'Desk use on peak days': 'desk', 'Building energy': 'buildingenergy',
+    Commuting: 'commuting', 'Fit-out materials (spread over lease)': 'fitout', 'Commutes over 60 minutes': 'longcommute',
+  };
 
   function renderTable() {
     $('#stTable').innerHTML = `<table class="mini-table st-table">

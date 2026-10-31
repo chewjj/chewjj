@@ -254,7 +254,7 @@ const Story = (() => {
           <div><span>Carbon in ${YEAR}</span><b>−${fmt.int(A.carbon - B.carbon)} t</b><em>per year</em></div>
           <div><span>People uncomfortable</span><b>${Math.round(A.e.ppd)}% → ${Math.round(B.e.ppd)}%</b><em>every working day</em></div>
           <div><span>Running cost</span><b>−${fmt.money(A.energyCost + A.carbonCost - B.energyCost - B.carbonCost)}</b><em>per year</em></div>
-          <div><span>Value protected</span><b>${fmt.money(A.valueLoss - B.valueLoss)}</b><em>brown discount avoided</em></div>
+          <div><span>Value protected ${info('brown')}</span><b>${fmt.money(A.valueLoss - B.valueLoss)}</b><em>brown discount avoided</em></div>
         </div>
         <p class="muted">Comfort, air quality, mould, energy and CRREM figures come from the Equilibria models (synthetic portfolio). The S$${CARBON_PRICE}/t carbon price,
           brown discount (up to ${Math.round(BROWN_DISCOUNT * 100)}%, scaled by how far the asset sits above its pathway), asset values and the daily CO₂ profile are illustrative assumptions.</p>

@@ -108,7 +108,7 @@ const Negotiation = (() => {
     $('#negoDeal').innerHTML = `
       <div class="deal">
         <div class="deal-head"><span class="dbadge ${deal.agreed ? 'd-improved' : 'd-worsened'}">${deal.agreed ? 'Agreed' : 'No deal'}</span>
-          <h3>Green lease · ${escapeHtml(n.b.name)}</h3><span class="muted">${live ? 'drafted by the Claude mediator' : 'offline scripted deal'}</span></div>
+          <h3>Green lease · ${escapeHtml(n.b.name)}</h3>${info('greenlease')}<span class="muted">${live ? 'drafted by the Claude mediator' : 'offline scripted deal'}</span></div>
         <p class="diff-headline">${escapeHtml(deal.summary)}</p>
         <div class="plan-kpis">
           <div><span>Capex (landlord)</span><b>${fmt.money(n.capex)}</b><em>saves ${fmt.money(n.savings)}/yr</em></div>
