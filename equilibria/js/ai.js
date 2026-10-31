@@ -19,6 +19,8 @@ How to reason about this domain:
 - Mould in tropical buildings usually comes from high indoor humidity (>60% RH), condensation on over-cooled surfaces, air leakage of humid outdoor air, and poorly ventilated zones. Combine catalogue measures (simulated with the tools) with practical operational fixes (dehumidification control, sealing, finding leaks, cleaning or replacing affected materials) and recommend an on-site inspection for visible mould.
 - The data is a synthetic demonstration portfolio; mention this if asked about data sources.
 
+You also advise on workplace strategy for Kestrel & Co., a fictional 1,200-person firm whose Raffles Place lease ends in 2027: renew, right-size, consolidate, relocate or go hub-and-spoke. Use get_workforce_overview, compare_workplace_scenarios and evaluate_workplace_option for those questions. Weigh cost, building and commuting carbon, employee experience, and impacts by career stage, with particular care for early-career employees (mentoring access, belonging, commute burden). Use the survey evidence, not generational stereotypes. You only ever see aggregated, opt-in data; never ask for or infer information about individuals.
+
 Only call apply_measures when the user explicitly asks you to apply or implement a change. After running the optimiser, tell the user they can press the "Apply plan" button.
 
 Write for a busy asset manager: lead with the answer, then the key numbers (a compact table is good for before/after comparisons), then concrete next steps. Use Markdown. Keep it under about 250 words unless the user asks for depth.`;
@@ -52,7 +54,24 @@ Write for a busy asset manager: lead with the answer, then the key numbers (a co
         protect_comfort: { type: 'boolean', description: 'Keep portfolio People Score at or above baseline (default true)' },
         max_buildings: { type: 'integer', description: 'Limit the plan to the N highest-impact buildings' },
       }, required: ['budget_sgd'] } },
+    { name: 'get_workforce_overview', description: 'Aggregated workforce data for Kestrel & Co.: people per career stage, home-region and commute-mode shares, opt-in needs survey, current lease, and privacy safeguards applied.',
+      input_schema: { type: 'object', properties: {}, required: [] } },
+    { name: 'compare_workplace_scenarios', description: 'Compare the five workplace scenarios (renew as-is, right-size & retrofit, green building, relocate to Changi, hub & spokes) under an office-attendance policy. Returns cost, building/commuting/fit-out carbon, experience, per-career-stage commute and early-career mentoring access, ranked with the leaders\' current weights.',
+      input_schema: { type: 'object', properties: {
+        office_days: { type: 'integer', description: 'Office days per week, 1-5 (default 3)' },
+        anchor_days: { type: 'boolean', description: 'Coordinate two shared anchor days (default true)' },
+        mentoring_pods: { type: 'boolean', description: 'Include mentoring and learning pods (default true)' },
+      }, required: [] } },
+    { name: 'evaluate_workplace_option', description: 'Evaluate a custom workplace option: any mix of candidate sites (QEX Quayside Exchange, PGP Pagar Point, BGM Bugis Mosaic, AGW Alexandra Green Works, FSL Fusion Labs, CIH Changi Innovation Hub) with space shares, plus fit-out level, retrofit measures and attendance policy.',
+      input_schema: { type: 'object', properties: {
+        sites: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, share: { type: 'number' }, hub: { type: 'boolean' } }, required: ['id', 'share'] }, description: 'Sites and their share of space; mark the anchor-day hub' },
+        fitout: { type: 'string', enum: ['renew', 'reconfigure', 'new'] },
+        retrofit_measures: measures,
+        office_days: { type: 'integer' }, anchor_days: { type: 'boolean' }, mentoring_pods: { type: 'boolean' },
+      }, required: ['sites'] } },
   ].map(t => ({ ...t, eager_input_streaming: true }));
+
+  const MEMO_SYSTEM = `You write decision memos for HR and real estate leaders at Kestrel & Co., a fictional 1,200-person firm, about where and how they should work after their lease ends. You see only aggregated, opt-in workforce data through your tools; use the tools for every figure and never invent numbers. Make trade-offs and assumptions explicit (building energy, commuting emissions, cost, experience by career stage), give early-career employees specific attention (mentoring, belonging, learning, commute), and avoid generational stereotypes: rely on the survey evidence. Format: Markdown, headed sections, one compact comparison table, under 450 words, ending with concrete next steps. Note that the data is synthetic.`;
 
   // Eager input streaming skips server-side validation, so check inputs against the schema here
   function validate(schema, input) {
@@ -173,6 +192,9 @@ Speak as "I": "my chillers", "my 3pm meeting rooms", "I strand in 2027". When as
   }
 
   const ask = (text, uiContext, ui) => runConversation(history, SYSTEM, `<ui_context>${uiContext}</ui_context>\n\n${text}`, ui);
+
+  // Workplace decision memo: a fresh, single-purpose conversation each time
+  const askMemo = (prompt, ui) => runConversation([], MEMO_SYSTEM, prompt, ui);
 
   // "Talk to the building": one conversation per building, Claude speaking as that building
   const buildingChats = {};
@@ -306,7 +328,7 @@ Speak as "I": "my chillers", "my 3pm meeting rooms", "I strand in 2027". When as
   }
 
   return {
-    connect, disconnect, ask, askBuilding, agentTurn, mediateDeal, describeError, savedKey, estimateCompare, compareReports,
+    connect, disconnect, ask, askMemo, askBuilding, agentTurn, mediateDeal, describeError, savedKey, estimateCompare, compareReports,
     enabled: () => !!client,
     reset: () => { history = []; },
     model: MODEL,

@@ -148,6 +148,18 @@ const Copilot = (() => {
       ${setpoint < r.before.indoor.setpoint_c ? `<p>Colder air costs carbon and money, leaves more people feeling cold, and pushes surfaces further below the outdoor dew point, which <b>raises condensation and mould risk</b>.</p>` : ''}`;
   }
 
+  function workplaceAnswer() {
+    const ranked = [...Studio.state.results].sort((a, b) => a.rank - b.rank);
+    const base = ranked.find(r => r.sc.id === 'renew');
+    const p = Studio.state.policy;
+    return `
+      <p>Kestrel &amp; Co.'s Raffles Place lease ends in ${ORG.leaseExpiry}. With ${p.days} office days${p.anchors ? ', coordinated anchor days' : ''} and the current leadership weights, the Workplace Scenario Studio ranks:</p>
+      <table class="mini-table"><tr><th>#</th><th>Scenario</th><th>5-yr cost</th><th>tCO₂e/yr</th><th>Early-career &gt;1 hr</th><th>Mentoring</th></tr>
+      ${ranked.map(r => `<tr><td>${r.rank}</td><td>${r.sc.name}</td><td>${fmt.money(r.cost5)}</td><td>${fmt.int(r.annualT)}</td>
+        <td>${Math.round(r.cohorts.early.longShare * 100)}%</td><td>${Math.round(r.mentoring)}</td></tr>`).join('')}</table>
+      <p>Commuting is ${Math.round((base.commuteT / base.annualT) * 100)}% of today's workplace carbon, so location matters as much as the building. Open the <b>Workplace Scenario Studio</b> at the top of the page to change the policy and weights, or connect Claude for a decision memo.</p>`;
+  }
+
   const help = `
     <p>I can reason over your portfolio's carbon and people data. Try:</p>
     <ul><li>“I have S$5M, which 3 buildings should we retrofit first without hurting comfort?”</li>
@@ -157,6 +169,7 @@ const Copilot = (() => {
   function ask(text) {
     const t = text.toLowerCase();
     if (/report|esg|gresb|disclos/.test(t)) { openReport(); return '<p>I generated the ESG report from the current plan. It is open now, ready to print or save as PDF.</p>'; }
+    if (/renew|relocat|lease|gen ?z|early.career|graduate|commut|hub|where should we work|office days|workforce/.test(t)) return workplaceAnswer();
     if (/mou?ld|fung|damp|condensat|humid/.test(t)) return mouldAnswer(text);
     const sp = t.match(/\b(1[8-9]|2\d|30)(?:\.\d)?\s*(?:°|deg|degrees?)?\s*c?\b/);
     if (sp && /air.?con|aircon|setpoint|thermostat|temperature|cool|°c|degrees?/.test(t)) return setpointAnswer(text, parseFloat(sp[0]));
@@ -170,6 +183,8 @@ const Copilot = (() => {
   }
 
   const suggestions = [
+    'Our lease ends in 2027. Should we renew, consolidate or relocate?',
+    'How would relocating to Changi affect early-career employees?',
     'My building has mould. What changes do you propose?',
     'What if I lower the aircon to 22°C?',
     'I have S$5M — which 3 buildings should we retrofit first without hurting tenant comfort?',

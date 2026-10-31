@@ -183,8 +183,69 @@ const PortfolioTools = (() => {
     };
   }
 
+  // ---------- workforce & workplace scenarios (aggregated data only) ----------
+
+  function policyFrom({ office_days = POLICY_DEFAULT.days, anchor_days = POLICY_DEFAULT.anchors, mentoring_pods = POLICY_DEFAULT.pods } = {}) {
+    if (!Number.isInteger(office_days) || office_days < 1 || office_days > 5) throw new Error('office_days must be an integer from 1 to 5');
+    return { days: office_days, anchors: !!anchor_days, pods: !!mentoring_pods };
+  }
+
+  function summariseWorkplace(r) {
+    return {
+      scenario: r.sc.name, sites: r.siteRows.map(s => `${s.name} (${Math.round(s.share * 100)}%${s.hub ? ', hub' : ''}, built ${s.built})`),
+      space_m2: r.area, peak_desk_use_pct: Math.round(r.utilisation * 100),
+      cost: { five_year_sgd: Math.round(r.cost5), annual_running_sgd: Math.round(r.annualCost), fitout_sgd: Math.round(r.fitout), move_sgd: Math.round(r.move) },
+      carbon_tco2e_per_yr: { building: Math.round(r.buildingT), commuting: Math.round(r.commuteT), fitout_spread: Math.round(r.embodiedT / ORG.horizon), total: Math.round(r.annualT) },
+      experience: { avg_commute_min: Math.round(r.avgMinutes), commutes_over_60min_pct: Math.round(r.longShare * 100), belonging_index: Math.round(r.belonging), building_comfort_people_score: Math.round(r.comfort) },
+      by_career_stage: Object.fromEntries(COHORTS.map(c => [c.name, {
+        commute_min: Math.round(r.cohorts[c.id].minutes), weekly_commute_hours: r1(r.cohorts[c.id].weeklyHours),
+        commutes_over_60min_pct: Math.round(r.cohorts[c.id].longShare * 100), monthly_pt_fare_sgd: Math.round(r.cohorts[c.id].monthlyFare),
+      }])),
+      early_career_mentoring_access_index: Math.round(r.mentoring),
+      overall_score_with_current_weights: r.score != null ? Math.round(r.score * 100) : undefined,
+    };
+  }
+
+  function getWorkforceOverview() {
+    const H = planningHeadcount();
+    return {
+      organisation: `${ORG.name} (${ORG.description})`, headcount_today: ORG.headcount, planning_headcount: H,
+      current_workplace: `${buildingById(ORG.currentSite).name}, ${ORG.currentArea} m², lease ends ${ORG.leaseExpiry}`,
+      career_stages: COHORTS.map(c => ({
+        name: c.name, detail: c.detail, people: Math.round(H * c.share),
+        home_region_share_pct: Object.fromEntries(Object.entries(privateHome(c, H).home).map(([rid, v]) => [REGION_BY_ID[rid].name, Math.round(v * 100)])),
+        commute_mode_share_pct: Object.fromEntries(Object.entries(c.mode).map(([m, v]) => [{ pt: 'public transport', car: 'car', active: 'walk/cycle' }[m], Math.round(v * 100)])),
+      })),
+      needs_survey_pct_very_important: NEEDS,
+      privacy: `Aggregated opt-in data only (survey response ${Math.round(ORG.surveyResponse * 100)}%); groups under ${K_MIN} people merged: ${privacyReport().map(s => `${s.cohort} in ${s.region} → ${s.mergedInto}`).join('; ') || 'none'}.`,
+      note: 'Synthetic, illustrative data. Segments are career stages; generation is a label only.',
+    };
+  }
+
+  function compareWorkplaceScenarios(input = {}) {
+    const policy = policyFrom(input);
+    const weights = Studio.state.weights;
+    const results = scoreScenarios(SCENARIOS.map(sc => evaluateWorkplace(sc, policy)), weights);
+    return { policy, weights, scenarios: results.sort((a, b) => a.rank - b.rank).map(r => ({ rank: r.rank, ...summariseWorkplace(r) })), assumptions: Object.fromEntries(ASSUMPTIONS) };
+  }
+
+  function evaluateWorkplaceOption({ sites, fitout = 'new', retrofit_measures = [], ...rest }) {
+    if (!Array.isArray(sites) || !sites.length) throw new Error('sites must be a non-empty array of {id, share, hub}');
+    const total = sites.reduce((s, x) => s + (+x.share || 0), 0);
+    const clean = sites.map(x => {
+      if (!SITES[x.id]) throw new Error(`Unknown site "${x.id}". Valid: ${Object.keys(SITES).map(id => `${id} (${buildingById(id).name})`).join(', ')}`);
+      return { id: x.id, share: (+x.share || 0) / total, hub: !!x.hub };
+    });
+    if (!WX.fitout[fitout]) throw new Error('fitout must be renew, reconfigure or new');
+    const sc = { id: 'custom', name: 'Custom option', icon: '✎', sites: clean, area: 'demand', fitout, measures: retrofit_measures, move: !(clean.length === 1 && clean[0].id === ORG.currentSite), blurb: '' };
+    return summariseWorkplace(evaluateWorkplace(sc, policyFrom(rest)));
+  }
+
   return {
     plans, findBuilding, mentionedBuilding, recommendPlan,
+    get_workforce_overview: getWorkforceOverview,
+    compare_workplace_scenarios: compareWorkplaceScenarios,
+    evaluate_workplace_option: evaluateWorkplaceOption,
     get_portfolio_overview: getPortfolioOverview,
     get_building_details: getBuildingDetails,
     assess_mould_risk: assessMouldRisk,
