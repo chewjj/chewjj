@@ -768,7 +768,7 @@ function renderOverviewWork() {
     <div class="ov-work-top"><strong>${top.sc.icon} ${top.sc.name}</strong>
       <span>recommended · ${p.days} office days${p.anchors ? ' · anchor days' : ''}${p.pods ? ' · mentoring pods' : ''} · lease ends ${ORG.leaseExpiry}</span></div>
     <div class="ov-row head"><span>#</span><span>Scenario</span><span>Score</span><span>5-yr cost</span><span>tCO₂e/yr</span><span>Juniors &gt;1 h ${info('juniors')}</span></div>
-    ${rs.map(r => `<div class="ov-row" data-go="workplace"><span>${r.rank}</span><b>${r.sc.name}</b>
+    ${rs.map(r => `<div class="ov-row ${r.plan === 'B' ? 'plan-b' : ''}" data-go="workplace"><span>${r.label}</span><b>${r.sc.name}</b>
       <div class="bar"><i style="width:${Math.round(r.score * 100)}%"></i></div><span>${fmt.money(r.cost5)}</span><span>${fmt.int(r.annualT)}</span>
       <span>${Math.round(r.cohorts.early.longShare * 100)}%</span></div>`).join('')}
   </div>`;

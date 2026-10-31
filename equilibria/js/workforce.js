@@ -103,9 +103,9 @@ function reachKm(siteIds, w = homeWeights()) {
 }
 
 // Hub = the most central site; spokes = the pair that brings the nearest office closest to where people live
-function pickHubAndSpokes(pool) {
+function pickHubAndSpokes(pool, hub) {
   const w = homeWeights();
-  const hub = pool.reduce((best, id) => (reachKm([id], w) < reachKm([best], w) ? id : best));
+  hub = hub || pool.reduce((best, id) => (reachKm([id], w) < reachKm([best], w) ? id : best));
   const rest = pool.filter(id => id !== hub);
   let spokes = rest.slice(0, 2), bestKm = Infinity;
   rest.forEach((a, i) => rest.slice(i + 1).forEach(b => {
@@ -125,17 +125,18 @@ function buildScenarios(sel = DEFAULT_SELECTION) {
       blurb: `Stay at ${cur.name}, hand back floors we no longer need, and retrofit the space we keep.` },
     ...sel.candidates.filter(id => id !== cur.id).map(id => {
       const b = buildingById(id);
-      return { id: `move-${id}`, name: `Relocate to ${b.name}`, icon: '→', sites: [{ id, share: 1 }], area: 'demand', fitout: 'new', measures: [], move: true,
+      return { id: `move-${id}`, name: `Relocate to ${b.name}`, icon: '→', sites: [{ id, share: 1 }], area: 'demand', fitout: 'new', measures: [], move: true, planB: true,
         blurb: `Consolidate into ${b.name} (${b.area}, built ${b.built}), sized to real attendance.` };
     }),
   ];
   const pool = [...new Set([cur.id, ...sel.candidates])];
   if (sel.hub && pool.length >= 3) {
-    const { hub, spokes } = pickHubAndSpokes(pool);
+    const { hub, spokes } = pickHubAndSpokes(pool, cur.id);
     const n = id => buildingById(id).name;
-    list.push({ id: 'hub', name: 'Hub & spokes', icon: '✳', sites: [{ id: hub, share: 0.7, hub: true }, ...spokes.map(id => ({ id, share: 0.15 }))],
-      area: 'demand', fitout: 'new', measures: [], move: true,
-      blurb: `Hub at ${n(hub)} for anchor days, with small spokes at ${n(spokes[0])} and ${n(spokes[1])} near where people live.` });
+    // keep the current building as the hub (reconfigured) and add two small new spokes; only the spoke share moves
+    list.push({ id: 'hub', name: 'Hub & spokes', icon: '✳', sites: [{ id: hub, share: 0.7, hub: true, fitout: 'reconfigure' }, ...spokes.map(id => ({ id, share: 0.15 }))],
+      area: 'demand', fitout: 'new', measures: [], move: 0.3,
+      blurb: `Keep ${n(hub)} as the hub for anchor days, and add small spokes at ${n(spokes[0])} and ${n(spokes[1])} near where people live.` });
   }
   return list;
 }
@@ -260,11 +261,12 @@ function evaluateWorkplace(sc, policy = POLICY_DEFAULT) {
   const belonging = 100 * colocation * amenity * Math.min(1, days / 2.5);
 
   const energyCost = kwh * TARIFF;
-  const fitout = area * WX.fitout[sc.fitout];
-  const move = sc.move ? H * WX.moveCostPerHead : 0;
+  const fitShare = key => sc.sites.reduce((s, x) => s + x.share * WX[key][x.fitout || sc.fitout], 0);
+  const fitout = area * fitShare('fitout');
+  const move = H * WX.moveCostPerHead * (sc.move === true ? 1 : sc.move || 0);
   const buildingT = (kwh * GRID_EF_2025) / 1000;
   const commuteT = commuteKg / 1000;
-  const embodiedT = area * WX.embodied[sc.fitout];
+  const embodiedT = area * fitShare('embodied');
   const avgMinutes = allMin / allN;
 
   return {
@@ -306,7 +308,14 @@ function scoreScenarios(results, weights) {
     });
     r.score = keys.reduce((s, k) => s + r.pillars[k] * weights[k], 0) / total;
   });
-  [...results].sort((a, b) => b.score - a.score).forEach((r, k) => { r.rank = k + 1; });
+  // Plan A (stay in the current building) is ranked first; relocations are Plan B, ranked among themselves
+  const planB = r => (r.sc.planB ? 1 : 0);
+  let a = 0, b = 0;
+  [...results].sort((x, y) => planB(x) - planB(y) || y.score - x.score).forEach((r, k) => {
+    r.rank = k + 1;
+    r.plan = r.sc.planB ? 'B' : 'A';
+    r.label = r.sc.planB ? `B${++b}` : `#${++a}`;
+  });
   return results;
 }
 
@@ -328,6 +337,7 @@ const ASSUMPTIONS = [
   ['Fit-out embodied carbon', `refresh ${WX.embodied.renew} · reconfigure ${WX.embodied.reconfigure} · new ${WX.embodied.new} tCO₂e/m², spread over the lease`],
   ['Mentoring access index', 'chance a senior colleague is in the same place on an early-career employee\'s office day × in-person time (full at 3 days/week) × 0.85 without mentoring pods'],
   ['Belonging index', 'share of office days the whole organisation is in one place × local amenity × enough shared days (full at 2.5 days/week)'],
-  ['Hub & spokes', 'anchor days at the hub; other office days at the site nearest home'],
+  ['Hub & spokes', 'the current building stays the hub for anchor days (reconfigured); other office days at the site nearest home; 30% of staff move to new spokes'],
+  ['Plan A / Plan B', 'options that keep the current building are ranked first; relocations are a fallback, ranked among themselves'],
   ['Workforce data', 'synthetic and aggregated: career stage × home region × commute mode; opt-in pulse survey; no individual records'],
 ];

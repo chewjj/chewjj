@@ -25,7 +25,9 @@ const Studio = (() => {
   function compute() {
     ORG.currentSite = st.selection.current;
     st.scenarios = buildScenarios(st.selection);
-    st.results = scoreScenarios(st.scenarios.map(sc => evaluateWorkplace(sc, st.policy)), st.weights);
+    // Plan A options before Plan B in every table and chart (stable, so columns don't jump as weights change)
+    st.results = scoreScenarios(st.scenarios.map(sc => evaluateWorkplace(sc, st.policy)), st.weights)
+      .sort((a, b) => a.plan.localeCompare(b.plan));
     if (!byId(st.selected)) st.selected = st.results.find(r => r.rank === 1).sc.id;
   }
 
@@ -87,7 +89,7 @@ const Studio = (() => {
           <tbody>${rows}</tbody></table></div>
         <div class="st-sites-foot">
           <label class="st-check"><input type="checkbox" id="stHub" ${st.selection.hub ? 'checked' : ''} ${pool < 3 ? 'disabled' : ''}>
-            Also test a hub &amp; spokes network <span class="hint">${pool < 3 ? 'needs at least 3 sites selected' : 'hub and spokes are picked automatically to minimise commuting'}</span></label>
+            Also test a hub &amp; spokes network <span class="hint">${pool < 3 ? 'needs at least 3 sites selected' : 'keeps the current building as the hub; spokes are picked to minimise commuting'}</span></label>
           <span class="muted">${st.scenarios.length} scenarios generated from ${pool} site${pool === 1 ? '' : 's'} · retail and logistics assets are not office workplaces, so they are not shown</span>
         </div>
       </div>`;
@@ -105,9 +107,21 @@ const Studio = (() => {
   // ---------- scenario cards ----------
 
   function renderCards() {
-    $('#stCards').innerHTML = st.results.map(r => `
+    const ranked = [...st.results].sort((a, b) => a.rank - b.rank);
+    const group = (plan, title, note) => {
+      const rs = ranked.filter(r => r.plan === plan);
+      return rs.length ? `<div class="st-group st-plan-${plan.toLowerCase()}" style="flex:${rs.length}">
+        <div class="st-group-head"><b>${title}</b><span>${note}</span></div>
+        <div class="st-group-cards" style="grid-template-columns:repeat(${rs.length}, minmax(0, 1fr))">${rs.map(card).join('')}</div></div>` : '';
+    };
+    $('#stCards').innerHTML = group('A', 'Plan A · stay', 'Make the current building work first')
+      + group('B', 'Plan B · relocate', 'Only if staying cannot meet the brief');
+  }
+
+  function card(r) {
+    return `
       <button class="st-card ${r.sc.id === st.selected ? 'on' : ''}" data-sc="${r.sc.id}">
-        <span class="st-rank ${r.rank === 1 ? 'top' : ''}">#${r.rank}</span>
+        <span class="st-rank ${r.rank === 1 ? 'top' : ''}">${r.label}</span>
         <span class="st-icon">${r.sc.icon}</span>
         <b>${r.sc.name}</b>
         <p>${r.sc.blurb}</p>
@@ -118,7 +132,7 @@ const Studio = (() => {
           <div><dt>Avg commute</dt><dd>${Math.round(r.avgMinutes)} min</dd></div>
           <div><dt>Mentoring</dt><dd>${Math.round(r.mentoring)}/100</dd></div>
         </dl>
-      </button>`).join('');
+      </button>`;
   }
 
   // ---------- comparison table ----------
@@ -279,8 +293,10 @@ const Studio = (() => {
     const strengths = Object.entries(top.pillars).filter(([, v]) => v >= 0.75).map(([k]) => PILLARS[k].toLowerCase());
     const weak = Object.entries(top.pillars).filter(([, v]) => v <= 0.35).map(([k]) => PILLARS[k].toLowerCase());
     const guards = safeguards(top).map(g => `- ${g.replace(/<\/?b>/g, '**')}`);
+    const pb = ranked.find(r => r.plan === 'B');
+    const planB = pb ? `\n\n**Plan B, if staying cannot meet the brief:** ${pb.sc.name} (score ${Math.round(pb.score * 100)}, ${fmt.money(pb.cost5)} over 5 years).` : '';
     return `### Recommendation: ${top.sc.name}
-${top.sc.blurb} With your weights (${w}), it ranks first of ${ranked.length}${strengths.length ? `, strongest on ${strengths.join(' and ')}` : ''}${weak.length ? `; weakest on ${weak.join(' and ')}` : ''}.
+${top.sc.blurb} With your weights (${w}), it ranks first of the options that keep the current building${strengths.length ? `, strongest on ${strengths.join(' and ')}` : ''}${weak.length ? `; weakest on ${weak.join(' and ')}` : ''}.
 
 | | Renew as-is | ${top.sc.name} |
 |---|---|---|
@@ -290,7 +306,7 @@ ${top.sc.blurb} With your weights (${w}), it ranks first of ${ranked.length}${st
 | Early-career commutes over 1 hr | ${pct(b.cohorts.early.longShare)} | ${pct(top.cohorts.early.longShare)} |
 | Mentoring access | ${Math.round(b.mentoring)}/100 | ${Math.round(top.mentoring)}/100 |
 
-**Runner-up:** ${ranked[1].sc.name} (score ${Math.round(ranked[1].score * 100)} vs ${Math.round(top.score * 100)}).
+**Runner-up:** ${ranked[1].sc.name} (score ${Math.round(ranked[1].score * 100)} vs ${Math.round(top.score * 100)}).${planB}
 
 **Early-career safeguards**
 ${guards.join('\n') || '- No major early-career risks flagged under this policy.'}

@@ -192,7 +192,7 @@ const PortfolioTools = (() => {
 
   function summariseWorkplace(r) {
     return {
-      scenario: r.sc.name, sites: r.siteRows.map(s => `${s.name} (${Math.round(s.share * 100)}%${s.hub ? ', hub' : ''}, built ${s.built})`),
+      scenario: r.sc.name, plan: r.plan === 'B' ? 'B (relocate, fallback only)' : 'A (stay in current building)', sites: r.siteRows.map(s => `${s.name} (${Math.round(s.share * 100)}%${s.hub ? ', hub' : ''}, built ${s.built})`),
       space_m2: r.area, peak_desk_use_pct: Math.round(r.utilisation * 100),
       cost: { five_year_sgd: Math.round(r.cost5), annual_running_sgd: Math.round(r.annualCost), fitout_sgd: Math.round(r.fitout), move_sgd: Math.round(r.move) },
       carbon_tco2e_per_yr: { building: Math.round(r.buildingT), commuting: Math.round(r.commuteT), fitout_spread: Math.round(r.embodiedT / ORG.horizon), total: Math.round(r.annualT) },
