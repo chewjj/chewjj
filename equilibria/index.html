@@ -63,8 +63,11 @@
       <header class="topbar">
         <div class="crumb"><span>Equilibria</span><b>/</b><strong id="crumb">Overview</strong></div>
         <div class="top-actions">
-          <input class="search-input" id="searchInput" list="searchList" placeholder="Search buildings…" aria-label="Search buildings" hidden>
-          <datalist id="searchList"></datalist>
+          <div class="search-box" id="searchBox" hidden>
+            <input class="search-input" id="searchInput" placeholder="Search buildings…" autocomplete="off" role="combobox"
+              aria-label="Search buildings" aria-expanded="false" aria-controls="searchList" aria-autocomplete="list">
+            <ul class="search-list" id="searchList" role="listbox" aria-label="Buildings"></ul>
+          </div>
           <button class="icon-btn" id="searchBtn" aria-label="Search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg></button>
           <button class="icon-btn" id="bellBtn" aria-label="Live alerts"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bell"/></svg><i class="dot" id="liveBadge" hidden></i></button>
           <button class="theme-btn" id="themeBtn" aria-label="Toggle theme"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use id="themeIcon" href="#i-sun"/></svg><span id="themeLabel">Light</span></button>
@@ -211,10 +214,10 @@
               <span class="sec-meta">12 ASSETS · SG · CRREM 1.5°C</span>
             </div>
             <div class="legend">
-              <span><i style="background:var(--red)"></i>Strands ≤2027</span>
-              <span><i style="background:var(--amber)"></i>2028–32</span>
-              <span><i style="background:var(--yellow)"></i>2033–40</span>
-              <span><i style="background:var(--green)"></i>Aligned</span>
+              <span data-term="status-crit"><i style="background:var(--red)"></i>Strands ≤2027</span>
+              <span data-term="status-risk"><i style="background:var(--amber)"></i>2028–32</span>
+              <span data-term="status-watch"><i style="background:var(--yellow)"></i>2033–40</span>
+              <span data-term="status-ok"><i style="background:var(--green)"></i>Aligned</span>
               <span class="muted">▮ height = tCO₂e/yr</span>
               <span class="muted">◌ commute flows of the selected workplace scenario</span>
             </div>

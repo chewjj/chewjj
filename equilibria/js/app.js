@@ -90,6 +90,59 @@ function planTableHTML(genes) {
   </table>`;
 }
 
+// ---------- glossary tooltips ----------
+// Hover, focus or tap anything with data-term to see a plain-language explanation.
+
+const GLOSSARY = {
+  stranded: ['Stranded', 'A building is stranded when its carbon intensity rises above its 1.5°C pathway (CRREM). Stranded buildings risk lower valuations, higher financing costs and tenants leaving. Here, "stranded" means it crosses the pathway by 2027 or is already over it.'],
+  'status-crit': ['Stranded', 'Crosses its 1.5°C carbon pathway by 2027, or is already above it. Needs action now.'],
+  'status-risk': ['At risk', 'Crosses its 1.5°C carbon pathway between 2028 and 2032.'],
+  'status-watch': ['Monitor', 'Crosses its 1.5°C carbon pathway between 2033 and 2040.'],
+  'status-ok': ['Aligned', 'Stays within its 1.5°C carbon pathway beyond 2040.'],
+  crrem: ['CRREM', 'Carbon Risk Real Estate Monitor: science-based carbon pathways for each building type. The stranding year is the first year a building\'s carbon intensity goes above its pathway. Pathways in this prototype are illustrative.'],
+  pathway: ['1.5°C pathway', 'The maximum carbon intensity a building type can emit each year while staying consistent with limiting global warming to 1.5°C. It falls every year.'],
+  intensity: ['Carbon intensity', 'Yearly operational emissions per square metre of floor area (kgCO₂e/m²), so buildings of different sizes can be compared.'],
+  people: ['People Score', '0–100. 40% thermal comfort (ISO 7730 PMV), 30% indoor air quality (CO₂) and 30% occupant satisfaction from pulse surveys.'],
+  pmv: ['PMV', 'Predicted Mean Vote (ISO 7730): how warm or cold people are predicted to feel, from −3 (cold) to +3 (hot). Between −0.5 and +0.5 is comfortable for most people.'],
+  eui: ['Energy use intensity', 'Yearly energy use per square metre of floor area (kWh/m²).'],
+  mentoring: ['Mentoring access index', 'The chance a senior colleague is in the same place on an early-career employee\'s office day, scaled by in-person time. Higher is better.'],
+  belonging: ['Belonging index', 'How often the whole organisation is in one place, local amenities, and enough shared office days. Higher is better.'],
+};
+
+const info = term => `<button type="button" class="info" data-term="${term}" aria-label="What is ${GLOSSARY[term][0]}?">?</button>`;
+
+function bindTerms() {
+  const tip = document.createElement('div');
+  tip.className = 'term-tip';
+  tip.setAttribute('role', 'tooltip');
+  tip.hidden = true;
+  document.body.appendChild(tip);
+  let current = null;
+  const show = el => {
+    const t = GLOSSARY[el.dataset.term];
+    if (!t) return;
+    current = el;
+    tip.innerHTML = `<b>${t[0]}</b>${t[1]}`;
+    tip.hidden = false;
+    const r = el.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - tip.offsetWidth - 8));
+    const below = r.bottom + 8 + tip.offsetHeight < window.innerHeight;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${below ? r.bottom + 8 : r.top - tip.offsetHeight - 8}px`;
+  };
+  const hide = () => { tip.hidden = true; current = null; };
+  document.addEventListener('mouseover', ev => { const el = ev.target.closest('[data-term]'); if (el) show(el); });
+  document.addEventListener('mouseout', ev => { const el = ev.target.closest('[data-term]'); if (el && !el.contains(ev.relatedTarget)) hide(); });
+  document.addEventListener('focusin', ev => { const el = ev.target.closest('[data-term]'); if (el) show(el); else hide(); });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') hide(); });
+  // Scrolling (including the scroll-into-view when tabbing) follows the term; it only hides once the term is left
+  window.addEventListener('scroll', () => {
+    if (!current) return;
+    if (current.isConnected && (current.matches(':hover') || current.contains(document.activeElement))) show(current);
+    else hide();
+  }, true);
+}
+
 // ---------- overview metric cards ----------
 
 const icon = (name, size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-${name}"/></svg>`;
@@ -171,17 +224,17 @@ function renderKPIs() {
   $('#kpis').innerHTML = [
     card('cloud', 'green', one ? 'Building emissions' : 'Emissions', fmt.int(s.carbon), 'tCO₂e/yr',
       s.carbon < b.carbon ? `↓ ${pct(s.carbon, b.carbon)}% vs baseline` : 'Baseline · no measures applied', s.carbon < b.carbon ? 'good' : '', tonnes, 'Projected emissions to 2047'),
-    card('bolt', 'cyan', 'Carbon intensity', s.intensity.toFixed(1), 'kgCO₂e/m²',
+    card('bolt', 'cyan', `Carbon intensity ${info('intensity')}`, s.intensity.toFixed(1), 'kgCO₂e/m²',
       s.intensity < b.intensity ? `↓ ${pct(s.intensity, b.intensity)}% vs baseline` : 'Scope 2 · SG grid', s.intensity < b.intensity ? 'good' : '', tonnes.map(t => (t * 1000) / gfa), 'Projected intensity to 2047'),
     one
       ? (() => {
         const e = cur(idx[0]), o = BASELINE[idx[0]];
-        return card('alert', 'amber', 'CRREM stranding year', strandLabel(e.strand), '1.5°C pathway',
+        return card('alert', 'amber', `CRREM stranding year ${info('crrem')}`, strandLabel(e.strand), '1.5°C pathway',
           e.strand !== o.strand ? `was ${strandLabel(o.strand)} at baseline` : STATUS_NAME[strandClass(e.strand)], e.strand === null || e.strand > 2032 ? 'good' : 'bad', tonnes.map(t => (t * 1000) / gfa), 'Projected intensity to 2047');
       })()
-      : card('alert', 'amber', 'Stranded by 2030', s.stranded, `/ ${idx.length} assets`,
+      : card('alert', 'amber', `Stranded by 2030 ${info('stranded')}`, s.stranded, `/ ${idx.length} assets`,
         s.stranded < b.stranded ? `↓ from ${b.stranded} at baseline` : 'CRREM 1.5°C pathway', s.stranded < b.stranded ? 'good' : 'bad', stranded, 'Cumulative stranded assets by year'),
-    card('users', 'cyan', 'People Score', s.people.toFixed(1), '/ 100',
+    card('users', 'cyan', `People Score ${info('people')}`, s.people.toFixed(1), '/ 100',
       s.people > b.people + 0.05 ? `↑ ${(s.people - b.people).toFixed(1)} pts vs baseline` : 'Comfort · air · satisfaction', s.people > b.people + 0.05 ? 'good' : '', idx.map(i => CACHE[i][state.plan[i]].people).sort((x, y) => x - y), 'People Score by building'),
     card('wallet', '', 'Capex committed', fmt.money(s.capex), '',
       s.savings > 0 ? `saves ${fmt.money(s.savings)}/yr` : 'No retrofits committed', s.savings > 0 ? 'good' : '', idx.map(i => CACHE[i][state.plan[i]].capex + 1).sort((x, y) => x - y), 'Capex by building'),
@@ -421,22 +474,22 @@ function renderDetail() {
       <div><dt>Type</dt><dd>${b.type}</dd></div>
       <div><dt>Built</dt><dd>${b.built}</dd></div>
       <div><dt>GFA</dt><dd>${fmt.int(b.gfa)} m²</dd></div>
-      <div><dt>EUI</dt><dd>${e.eui.toFixed(0)} kWh/m²</dd></div>
+      <div><dt>EUI ${info('eui')}</dt><dd>${e.eui.toFixed(0)} kWh/m²</dd></div>
       <div><dt>Setpoint</dt><dd>${e.ta}°C</dd></div>
       <div><dt>Occupancy</dt><dd>${fmt.pct(e.occ)}</dd></div>
     </dl>
     <div class="metrics">
-      ${metric('Carbon intensity', e.intensity.toFixed(0), 'kgCO₂e/m²', deltaTag(e.intensity, base.intensity))}
-      ${metric('Stranding year', strandTag(e.strand), '', e.strand !== base.strand ? `<span class="delta good">was ${strandLabel(base.strand)}</span>` : 'vs CRREM 1.5°C')}
+      ${metric(`Carbon intensity ${info('intensity')}`, e.intensity.toFixed(0), 'kgCO₂e/m²', deltaTag(e.intensity, base.intensity))}
+      ${metric(`Stranding year ${info('crrem')}`, strandTag(e.strand), '', e.strand !== base.strand ? `<span class="delta good">was ${strandLabel(base.strand)}</span>` : 'vs CRREM 1.5°C')}
       ${metric('Emissions', fmt.int(e.carbon), 'tCO₂e/yr', deltaTag(e.carbon, base.carbon))}
-      ${metric('People Score', e.people.toFixed(0), '/100', deltaPts(e.people, base.people))}
+      ${metric(`People Score ${info('people')}`, e.people.toFixed(0), '/100', deltaPts(e.people, base.people))}
     </div>
     <div class="sub-head"><i>02.1</i>Carbon trajectory <span class="hint">kgCO₂e/m² vs 1.5°C pathway</span></div>
     <div class="chart-box"><canvas id="crremChart"></canvas></div>
     <div class="sub-head"><i>02.2</i>People layer <span class="hint">ISO 7730 · IAQ · pulse</span></div>
     <div class="people">
       <div class="pmv">
-        <div class="pmv-head"><span>Thermal comfort (PMV)</span><b>${e.pmv >= 0 ? '+' : ''}${e.pmv.toFixed(2)} · ${pmvLabel(e.pmv)}</b></div>
+        <div class="pmv-head"><span>Thermal comfort (PMV) ${info('pmv')}</span><b>${e.pmv >= 0 ? '+' : ''}${e.pmv.toFixed(2)} · ${pmvLabel(e.pmv)}</b></div>
         <div class="pmv-scale"><div class="pmv-comfort"></div><div class="pmv-marker" style="left:${clamp(((e.pmv + 3) / 6) * 100, 0, 100)}%"></div></div>
         <div class="pmv-ticks"><span>Cold</span><span>Cool</span><span>Neutral</span><span>Warm</span><span>Hot</span></div>
         <p class="tiny">${e.ta}°C · air ${e.vel} m/s · ${b.rh}% RH · <b>${e.ppd.toFixed(0)}%</b> predicted dissatisfied</p>
@@ -603,7 +656,7 @@ const STATUS_NAME = { crit: 'Stranded', risk: 'At risk', watch: 'Monitor', ok: '
 
 function renderTable() {
   $('#tableWrap').innerHTML = `<table class="ptable dtable">
-    <thead><tr><th>Asset</th><th>Type</th><th>GFA m²</th><th>Carbon <small>kgCO₂e/m²</small></th><th>vs base</th><th>People score</th><th>PMV</th><th>CRREM status</th><th>Measures</th><th>Capex</th><th></th></tr></thead>
+    <thead><tr><th>Asset</th><th>Type</th><th>GFA m²</th><th>Carbon <small>kgCO₂e/m²</small></th><th>vs base</th><th>People score ${info('people')}</th><th>PMV ${info('pmv')}</th><th>CRREM status ${info('crrem')}</th><th>Measures</th><th>Capex</th><th></th></tr></thead>
     <tbody>${scopeIndices().map(i => {
       const b = BUILDINGS[i], e = cur(i), o = BASELINE[i], cls = strandClass(e.strand), d = (e.intensity / o.intensity - 1) * 100;
       return `<tr data-building="${i}" class="${i === state.selected ? 'sel' : ''}">
@@ -611,7 +664,7 @@ function renderTable() {
         <td>${e.intensity.toFixed(0)}</td><td class="${d < -0.5 ? 'good-txt' : 'muted'}">${d < -0.5 ? `${d.toFixed(1)}%` : '—'}</td>
         <td><div class="occ"><i style="--fill:${e.people.toFixed(0)}%"></i><span>${e.people.toFixed(0)}</span></div></td>
         <td>${e.pmv.toFixed(2)}</td>
-        <td><span class="status-pill"><i class="st-${cls}"></i>${STATUS_NAME[cls]} · ${strandLabel(e.strand)}</span></td>
+        <td><span class="status-pill" data-term="status-${cls}"><i class="st-${cls}"></i>${STATUS_NAME[cls]} · ${strandLabel(e.strand)}</span></td>
         <td>${actionIcons(e.mask)}</td><td>${fmt.money(e.capex)}</td><td><span class="row-btn">›</span></td></tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -640,7 +693,7 @@ function renderOverviewPerf() {
     <div class="chart-summary">
       <div><span>Intensity ${years[0]}</span><strong>${actual[0].toFixed(1)} <small>kgCO₂e/m²</small></strong></div>
       <div><span>Intensity ${ovHorizon}</span><strong>${actual.at(-1).toFixed(1)} <small>kgCO₂e/m²</small></strong></div>
-      <div><span>vs 1.5°C pathway</span><strong class="${gap > 0 ? 'bad-txt' : 'good-txt'}">${gap > 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}</strong></div>
+      <div><span>vs 1.5°C pathway ${info('pathway')}</span><strong class="${gap > 0 ? 'bad-txt' : 'good-txt'}">${gap > 0 ? '+' : '−'}${Math.abs(gap).toFixed(1)}</strong></div>
       <div class="legend"><span><i class="line-key"></i>Current plan</span><span><i class="line-key base"></i>Baseline</span><span><i class="line-key dash"></i>1.5°C pathway</span></div>
     </div>
     <div class="ov-chart"><svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="Portfolio carbon intensity against the 1.5°C pathway to ${ovHorizon}">
@@ -662,11 +715,11 @@ function renderOverviewHealth() {
   $('#ovHealth').innerHTML = `
     <div class="health-visual">
       <div class="donut" style="--pct:${s.people.toFixed(0)}%"><div><strong>${s.people.toFixed(0)}</strong><span>/ 100</span></div></div>
-      <div class="health-copy"><span>${idx.length === 1 ? 'Building' : 'Portfolio'} People Score</span><strong>${label}</strong>
+      <div class="health-copy"><span>${idx.length === 1 ? 'Building' : 'Portfolio'} People Score ${info('people')}</span><strong>${label}</strong>
         <p>Comfort, air quality and satisfaction${idx.length === 1 ? '' : ', weighted by headcount'}. ${s.stranded} of ${idx.length} asset${idx.length === 1 ? '' : 's'} strand${idx.length === 1 ? 's' : ''} by 2030.</p></div>
     </div>
     <div class="health-breakdown">
-      ${['ok', 'watch', 'risk', 'crit'].map(c => `<div class="score"><div><span><i class="st-${c}"></i>${STATUS_NAME[c]}</span><strong>${count(c)}</strong></div>
+      ${['ok', 'watch', 'risk', 'crit'].map(c => `<div class="score"><div><span data-term="status-${c}"><i class="st-${c}"></i>${STATUS_NAME[c]}</span><strong>${count(c)}</strong></div>
         <div class="score-track"><i class="st-${c}" style="width:${(count(c) / idx.length) * 100}%"></i></div></div>`).join('')}
     </div>`;
 }
@@ -718,6 +771,47 @@ function bindVizTips(root) {
     tipEl.style.top = `${ev.clientY + 14}px`;
   });
   root.addEventListener('mouseleave', () => { tipEl.hidden = true; });
+}
+
+// ---------- building search (top bar dropdown) ----------
+
+let searchHi = 0;
+
+function searchMatches(q) {
+  const t = q.trim().toLowerCase();
+  return BUILDINGS.map((b, i) => ({ b, i })).filter(({ b }) => !t || [b.name, b.area, b.type, b.id].some(s => s.toLowerCase().includes(t)));
+}
+
+function renderSearchList() {
+  const items = searchMatches($('#searchInput').value);
+  searchHi = clamp(searchHi, 0, Math.max(0, items.length - 1));
+  $('#searchList').innerHTML = items.length
+    ? items.map(({ b, i }, k) => {
+      const cls = strandClass(cur(i).strand);
+      return `<li role="option" id="searchOpt${k}" data-pick="${i}" class="${k === searchHi ? 'hi' : ''}" aria-selected="${k === searchHi}">
+        <i class="st-${cls}"></i><span><b>${b.name}</b><small>${b.area} · ${b.type}</small></span><em data-term="status-${cls}">${STATUS_NAME[cls]}</em></li>`;
+    }).join('')
+    : '<li class="empty">No building matches</li>';
+  $('#searchInput').setAttribute('aria-activedescendant', items.length ? `searchOpt${searchHi}` : '');
+  const hi = $('#searchList .hi');
+  if (hi) hi.scrollIntoView({ block: 'nearest' });
+}
+
+function openSearch(open) {
+  $('#searchBox').hidden = !open;
+  $('#searchInput').setAttribute('aria-expanded', String(open));
+  if (open) {
+    $('#searchInput').value = '';
+    searchHi = 0;
+    renderSearchList();
+    $('#searchInput').focus();
+  }
+}
+
+function pickBuilding(i) {
+  openSearch(false);
+  select(i);
+  showPage('portfolio');
 }
 
 // ---------- pages ----------
@@ -1035,7 +1129,9 @@ function refreshAll() {
 }
 
 function bindEvents() {
+  bindTerms();
   document.addEventListener('click', ev => {
+    if (ev.target.closest('.info')) { ev.preventDefault(); ev.stopPropagation(); return; } // info buttons only explain
     const chip = ev.target.closest('.chip-action');
     if (chip && !chip.disabled) {
       state.plan[state.selected] ^= 1 << +chip.dataset.k;
@@ -1094,20 +1190,27 @@ function bindEvents() {
   $('#themeBtn').addEventListener('click', () => setTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
   $('#bellBtn').addEventListener('click', () => showPage('live'));
   $('#settingsBtn').addEventListener('click', () => { showPage('copilot'); if (!AI.enabled()) $('#aiKey').focus(); });
-  $('#searchBtn').addEventListener('click', () => {
-    const inp = $('#searchInput');
-    inp.hidden = !inp.hidden;
-    if (!inp.hidden) inp.focus();
+  $('#searchBtn').addEventListener('click', () => openSearch($('#searchBox').hidden));
+  $('#searchInput').addEventListener('input', () => { searchHi = 0; renderSearchList(); });
+  $('#searchInput').addEventListener('keydown', ev => {
+    const items = searchMatches($('#searchInput').value);
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      searchHi = (searchHi + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % Math.max(1, items.length);
+      renderSearchList();
+    } else if (ev.key === 'Enter' && items[searchHi]) {
+      pickBuilding(items[searchHi].i);
+    } else if (ev.key === 'Escape') {
+      openSearch(false);
+    }
   });
-  $('#searchInput').addEventListener('change', ev => {
-    const q = ev.target.value.trim();
-    if (!q) return;
-    const i = PortfolioTools.mentionedBuilding(q);
-    if (i === null) { toast(`No building matches "${q}"`); return; }
-    ev.target.value = '';
-    ev.target.hidden = true;
-    select(i);
-    showPage('portfolio');
+  // mousedown so the pick happens before the input loses focus
+  $('#searchList').addEventListener('mousedown', ev => {
+    const li = ev.target.closest('[data-pick]');
+    if (li) { ev.preventDefault(); pickBuilding(+li.dataset.pick); }
+  });
+  document.addEventListener('mousedown', ev => {
+    if (!$('#searchBox').hidden && !ev.target.closest('#searchBox, #searchBtn')) openSearch(false);
   });
   $('#ovHorizon').addEventListener('click', ev => {
     const btn = ev.target.closest('[data-h]');
@@ -1125,7 +1228,6 @@ function init() {
   setTheme(currentTheme());
   const hour = new Date().getHours();
   $('#greeting').textContent = hour < 12 ? 'Good morning.' : hour < 18 ? 'Good afternoon.' : 'Good evening.';
-  $('#searchList').innerHTML = BUILDINGS.map(b => `<option value="${b.name}">${b.area}</option>`).join('');
   renderScopePicker();
   $('#ovScope').addEventListener('change', ev => setScope(ev.target.value));
   showPage(location.hash.slice(1) || 'overview');

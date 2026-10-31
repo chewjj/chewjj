@@ -74,7 +74,7 @@ const Studio = (() => {
         <td><input type="checkbox" data-cand="${id}" ${isCand || isCur ? 'checked' : ''} ${isCur ? 'disabled' : ''} aria-label="Candidate: ${b.name}"></td>
         <td><strong>${b.name}</strong><span>${b.area} · built ${b.built}</span></td>
         <td>S$${SITES[id].rent}</td><td>${Math.round(e.eui)}</td><td>${Math.round(e.people)}</td>
-        <td><span class="status-pill"><i class="st-${cls}"></i>${STATUS_NAME[cls]}</span></td>
+        <td><span class="status-pill" data-term="status-${cls}"><i class="st-${cls}"></i>${STATUS_NAME[cls]}</span></td>
         <td>${Math.round(solo.avgMinutes)} min</td><td>${pct(solo.cohorts.early.longShare)}</td></tr>`;
     }).join('');
     const pool = new Set([st.selection.current, ...st.selection.candidates]).size;
@@ -83,7 +83,7 @@ const Studio = (() => {
       <div class="st-sites-list">
         <div class="table-wrap"><table class="ptable dtable st-site-table">
           <thead><tr><th>Current</th><th>Candidate</th><th>Building</th><th>Rent <small>S$/m²/mo</small></th><th>Energy <small>kWh/m²</small></th>
-            <th>People <small>score</small></th><th>CRREM</th><th>Avg commute <small>if all moved here</small></th><th>Juniors &gt;1 h <small>if all moved here</small></th></tr></thead>
+            <th>People <small>score</small> ${info('people')}</th><th>CRREM ${info('crrem')}</th><th>Avg commute <small>if all moved here</small></th><th>Juniors &gt;1 h <small>if all moved here</small></th></tr></thead>
           <tbody>${rows}</tbody></table></div>
         <div class="st-sites-foot">
           <label class="st-check"><input type="checkbox" id="stHub" ${st.selection.hub ? 'checked' : ''} ${pool < 3 ? 'disabled' : ''}>
@@ -150,6 +150,8 @@ const Studio = (() => {
     ]],
   ];
 
+  const TERMS = { 'Mentoring access index': 'mentoring', 'Belonging index': 'belonging', 'Building comfort (People Score)': 'people' };
+
   function renderTable() {
     $('#stTable').innerHTML = `<table class="mini-table st-table">
       <tr><th></th>${st.results.map(r => `<th class="${r.sc.id === st.selected ? 'sel' : ''}">${r.sc.icon} ${r.sc.name}</th>`).join('')}</tr>
@@ -157,7 +159,7 @@ const Studio = (() => {
         ${rows.map(([label, get, f, better]) => {
           const vals = st.results.map(get);
           const best = better === 'low' ? Math.min(...vals) : better === 'high' ? Math.max(...vals) : null;
-          return `<tr><td>${label}</td>${st.results.map((r, k) => `<td class="${r.sc.id === st.selected ? 'sel' : ''} ${best !== null && Math.abs(vals[k] - best) < 1e-9 ? 'best' : ''}">${f(vals[k])}</td>`).join('')}</tr>`;
+          return `<tr><td>${label}${TERMS[label] ? ` ${info(TERMS[label])}` : ''}</td>${st.results.map((r, k) => `<td class="${r.sc.id === st.selected ? 'sel' : ''} ${best !== null && Math.abs(vals[k] - best) < 1e-9 ? 'best' : ''}">${f(vals[k])}</td>`).join('')}</tr>`;
         }).join('')}`).join('')}
     </table>`;
   }
